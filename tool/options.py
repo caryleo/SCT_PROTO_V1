@@ -2,10 +2,10 @@
 # -*- coding: UTF-8 -*-
 
 """
-FILENAME: options.py
-BY: Gary 2019.3.12
-LAST MODIFIED: 2019.3.14
-DESCRIPTION: reads arguments from the command line
+FILENAME:       options.py
+BY:             Gary 2019.3.12
+LAST MODIFIED:  2019.3.15
+DESCRIPTION:    reads arguments from the command line
 """
 
 import argparse
@@ -21,6 +21,10 @@ def parse_arg_elka():
                         required=True,
                         choices=["train", "eval", "precaps", "prefeat"],
                         help="Choose the mode")
+
+    parser.add_argument('-d', '--debug',
+                        action='store_true',
+                        help="Debug mode")
 
     # preprocess captions
     parser.add_argument('-incapjson', "--input_caption_json",
@@ -43,9 +47,12 @@ def parse_arg_elka():
                         default=5,
                         help="The threshold of the number of occurrences of words in all captions, "
                              "rare words will be replaced by token UNK")
+    parser.add_argument('-imgrt', "--image_root",
+                        default="",
+                        help="root dictionary of images")
 
-    ans = parser.parse_args()
+    opts = parser.parse_args()
 
     # validation
 
-    return ans
+    return opts
