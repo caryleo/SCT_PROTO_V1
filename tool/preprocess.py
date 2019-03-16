@@ -4,18 +4,35 @@
 """
 FILENAME:       preprocess.py
 BY:             Gary 2019.3.14
-LAST MODIFIED:  2019.3.15
+LAST MODIFIED:  2019.3.16
 DESCRIPTION:    preprocess core
 """
+
 import json
 import logging
 import h5py
 import numpy as np
 import os
 from PIL import Image
+import skimage.io
+import torch
+from torchvision import transforms, models
+
+import tool.netcore as netcore
 
 
 def preprocess_captions(opts):
+    """
+    According to the opts to set the options about the preprocessing for captions
+    Input json: the karpathy split
+    Output h5: All the captions vocab-indexed (captions), the length for each caption (caption_lengths) and
+        the start caption index (index_start) and end caption index (index_end) for each image
+    Output json: An array for information of all images, including split (split), filepath (filepath,
+        concatenating filename), coco image id (cocoid), and the width and height of the image if image
+        directory specified (width, height). As well as an array for the vocabulary (index_to_word).
+    :param opts: arguments
+    :return: None
+    """
     # load file path
     path_to_input_json = opts.input_caption_json
     path_to_output_json = opts.output_caption_json
@@ -149,6 +166,9 @@ def preprocess_captions(opts):
     output_json["index_to_word"] = index_to_word
     output_json["images"] = list()
 
+    if image_root == "":
+        logging.warning("No image root specified, width and height will not be stored")
+
     for index, image in enumerate(images):
         output_image = dict()
         output_image["split"] = image["split"]
@@ -162,3 +182,85 @@ def preprocess_captions(opts):
 
     json.dump(output_json, open(path_to_output_json, 'w'))
     logging.info("Create json file complete")
+    logging.info("Preprocess for captions complete")
+
+
+def preprocess_features(opts, device):
+    # load file path
+    path_to_input_json = opts.input_caption_json
+    directory_of_output = opts.output_feature_directory
+    image_root = opts.image_root
+    path_to_models = opts.model_directory
+
+    assert path_to_input_json != "", "Path to input feature json is needed."
+    assert directory_of_output != "", "Directory of output is needed."
+    assert image_root != "", "Image Root is needed."
+    assert path_to_models != "", "Path to models is needed."
+
+    logging.info("Path to input feature json: %s" % path_to_input_json)
+    logging.info("Directory of output: %s" % directory_of_output)
+    logging.info("Image Root: %s" % image_root)
+    logging.info("Path to models: %s" % path_to_models)
+
+    # model for extraction
+    model_name = opts.model
+    attention_size = opts.attention_size
+
+    logging.info("Model: %s" % model_name)
+    logging.info("Attention Feature size: %d" % attention_size)
+
+    # normalization
+    normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+
+    # model, use the pretrained weights
+    if model_name == "resnet50":
+        model = models.resnet50()
+    elif model_name == "resnet101":
+        model = models.resnet101()
+    else:
+        model = models.resnet152()
+
+    logging.info("Loading pretrained resnet model")
+    model.load_state_dict(torch.load(os.path.join(path_to_models, model_name + ".pth")))
+    logging.debug("Current Model: \n" + model.__str__())
+
+    feature_net = netcore.my_resnet(model)
+    feature_net.cuda(device=device)
+    feature_net.eval()
+
+    images = json.load(open(path_to_input_json, 'r'))["images"]
+    num_images = len(images)
+
+    # feature directories
+    directory_of_fc_feature = os.path.join(directory_of_output, "features_fc")
+    if not os.path.isdir(directory_of_fc_feature):
+        os.mkdir(directory_of_fc_feature)
+    logging.info("Directory of fc features: %s" % directory_of_fc_feature)
+    directory_of_att_feature = os.path.join(directory_of_output, "features_att")
+    if not os.path.isdir(directory_of_att_feature):
+        os.mkdir(directory_of_att_feature)
+    logging.info("Directory of att features: %s" % directory_of_att_feature)
+
+    # feature extraction
+    logging.info("Extracting features")
+    for index, image in enumerate(images):
+        input_image = skimage.io.imread(os.path.join(image_root, image["filepath"], image["filename"]))
+        # gray_scale images
+        if len(input_image.shape) == 2:
+            input_image = input_image[:, :, np.newaxis]
+            input_image = np.concatenate((input_image, input_image, input_image), axis=2)
+
+        input_image = input_image.astype('float32') / 255.0
+        input_image = torch.from_numpy(input_image.transpose([2, 0, 1])).cuda(device=device)
+        input_image = normalize(input_image)
+        with torch.no_grad():
+            feat_fc, feat_att = feature_net(input_image, attention_size)
+
+        np.save(os.path.join(directory_of_fc_feature, str(image['cocoid'])), feat_fc.data.cpu().float().numpy())
+        np.savez_compressed(os.path.join(directory_of_att_feature, str(image['cocoid'])),
+                            feat=feat_att.data.cpu().float().numpy())
+
+        if index % 1000 == 0:
+            logging.info('Processing %d / %d (%.2f%%)' % (index, num_images, input_image * 100.0 / N))
+
+    logging.info("Extraction complete")

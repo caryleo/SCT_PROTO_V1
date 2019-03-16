@@ -19,7 +19,7 @@ def parse_arg_elka():
                         dest="mode",
                         default="train",
                         required=True,
-                        choices=["train", "eval", "precaps", "prefeat"],
+                        choices=["train", "eval", "precaps", "prefeats"],
                         help="Choose the mode")
 
     parser.add_argument('-d', '--debug',
@@ -32,7 +32,7 @@ def parse_arg_elka():
                         help="Path to input split json to preprocess the captions")
 
     parser.add_argument('-outcapjson', "--output_caption_json",
-                        default="data/sct_capindices.json",
+                        default="data/sct_caps2idx.json",
                         help="Path to output the result json of processing the captions")
 
     parser.add_argument('-outcaph5', "--output_caption_h5",
@@ -49,7 +49,29 @@ def parse_arg_elka():
                              "rare words will be replaced by token UNK")
     parser.add_argument('-imgrt', "--image_root",
                         default="",
-                        help="root dictionary of images")
+                        help="root directory of images")
+
+    # preprocess images, including image_root and input_caption_json
+    parser.add_argument('-outfeatdir', "--output_feature_directory",
+                        default='data/features',
+                        help="directory for output feature files")
+
+    parser.add_argument('-attsize', "--attention_size",
+                        default=14,
+                        choices=[7, 14],
+                        type=int,
+                        help="attention size")
+
+    parser.add_argument('-mod', "--model",
+                        default="resnet101",
+                        choices=["resnet50", "resnet101", "resnet152"],
+                        type=str,
+                        help="model for feature extraction")
+
+    parser.add_argument('-moddir', "--model_directory",
+                        default="data/models",
+                        type=str,
+                        help="directory of the models for feature extraction")
 
     opts = parser.parse_args()
 

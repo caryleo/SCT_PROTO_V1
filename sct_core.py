@@ -3,13 +3,15 @@
 
 
 """
-FILENAME:       core.py
+FILENAME:       sct_core.py
 BY:             Gary 2019.3.12
-LAST MODIFIED:  2019.3.15
+LAST MODIFIED:  2019.3.16
 DESCRIPTION:    main core file
 """
+
 import json
 import logging
+import torch
 
 from tool import options, preprocess
 
@@ -21,10 +23,10 @@ if __name__ == "__main__":
     # logging
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(asctime)s  %(filename)s : %(levelname)s  %(message)s',
+        format='%(asctime)s**%(levelname)s\t%(message)s',
         datefmt='%Y.%m.%d-%H:%M:%S',
         filename='elka.log',
-        filemode='w'
+        filemode='a'
     )
     console = logging.StreamHandler()
     if opts.debug:
@@ -32,13 +34,17 @@ if __name__ == "__main__":
     else:
         console.setLevel(logging.INFO)
     console.setFormatter(
-        logging.Formatter('%(asctime)s-%(levelname)s %(message)s',
+        logging.Formatter('%(asctime)s**%(levelname)s\t%(message)s',
                           datefmt='%Y.%m.%d-%H:%M:%S'))
     logging.getLogger('').addHandler(console)
 
     # DEBUG: opts
     para = vars(opts)
     logging.debug("Options input: \n" + json.dumps(para, indent=2))
+
+    # cuda device
+    device = torch.device("cuda:0")
+    logging.info("Device Using: %s " % device.__str__())
 
     # check mode
     if opts.mode == 'train':
@@ -48,5 +54,6 @@ if __name__ == "__main__":
     elif opts.mode == 'precaps':
         logging.info("Current core mode: Preprocessing captions")
         preprocess.preprocess_captions(opts)
-    elif opts.mode == 'prefeat':
+    elif opts.mode == 'prefeats':
         logging.info("Current core mode: Preprocessing features")
+        preprocess.preprocess_features(opts, device)
