@@ -225,7 +225,7 @@ def preprocess_features(opts, device):
     logging.debug("Current Model: \n" + model.__str__())
 
     feature_net = netcore.my_resnet(model)
-    feature_net.cuda(device=device)
+    feature_net.to(device=device)
     feature_net.eval()
 
     images = json.load(open(path_to_input_json, 'r'))["images"]
@@ -251,7 +251,7 @@ def preprocess_features(opts, device):
             input_image = np.concatenate((input_image, input_image, input_image), axis=2)
 
         input_image = input_image.astype('float32') / 255.0
-        input_image = torch.from_numpy(input_image.transpose([2, 0, 1])).cuda(device=device)
+        input_image = torch.from_numpy(input_image.transpose([2, 0, 1])).to(device=device)
         input_image = normalize(input_image)
         with torch.no_grad():
             feat_fc, feat_att = feature_net(input_image, attention_size)
