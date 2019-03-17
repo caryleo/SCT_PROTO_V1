@@ -213,6 +213,7 @@ def preprocess_features(opts, device):
     normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
     # model, use the pretrained weights
+    logging.info("Loading pretrained resnet model")
     if model_name == "resnet50":
         model = models.resnet50()
     elif model_name == "resnet101":
@@ -220,26 +221,21 @@ def preprocess_features(opts, device):
     else:
         model = models.resnet152()
 
-    logging.info("Loading pretrained resnet model")
     model.load_state_dict(torch.load(os.path.join(path_to_models, model_name + ".pth")))
     logging.debug("Current Model: \n" + model.__str__())
 
     feature_net = netcore.my_resnet(model)
-    feature_net.to(device=device)
+    feature_net.cuda(device=device)
     feature_net.eval()
+    logging.info("Load pretrained resnet model complete")
 
     images = json.load(open(path_to_input_json, 'r'))["images"]
     num_images = len(images)
 
     # feature directories
-    directory_of_fc_feature = os.path.join(directory_of_output, "features_fc")
-    if not os.path.isdir(directory_of_fc_feature):
-        os.mkdir(directory_of_fc_feature)
-    logging.info("Directory of fc features: %s" % directory_of_fc_feature)
-    directory_of_att_feature = os.path.join(directory_of_output, "features_att")
-    if not os.path.isdir(directory_of_att_feature):
-        os.mkdir(directory_of_att_feature)
-    logging.info("Directory of att features: %s" % directory_of_att_feature)
+    logging.info("Creating h5 files")
+    file_of_fc_feature = h5py.File(os.path.join(directory_of_output, "feats_fc.h5"))
+    file_of_att_feature = h5py.File(os.path.join(directory_of_output, "feats_att.h5"))
 
     # feature extraction
     logging.info("Extracting features")
@@ -251,16 +247,18 @@ def preprocess_features(opts, device):
             input_image = np.concatenate((input_image, input_image, input_image), axis=2)
 
         input_image = input_image.astype('float32') / 255.0
-        input_img = torch.from_numpy(input_image.transpose([2, 0, 1])).to(device=device)
+        input_img = torch.from_numpy(input_image.transpose([2, 0, 1])).cuda(device=device)
         input_img = normalize(input_img).to(device=device)
+
+        # extract features
         with torch.no_grad():
             feat_fc, feat_att = feature_net(input_img, attention_size)
 
-        np.save(os.path.join(directory_of_fc_feature, str(image['cocoid'])), feat_fc.data.cpu().float().numpy())
-        np.savez_compressed(os.path.join(directory_of_att_feature, str(image['cocoid'])),
-                            feat=feat_att.data.cpu().float().numpy())
+        file_of_fc_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_fc.cpu().float().numpy())
+        file_of_att_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_att.cpu().float().numpy())
 
         if index % 1000 == 0:
             logging.info('Processing %d / %d (%.2f%%)' % (index, num_images, index * 100.0 / num_images))
 
     logging.info("Extraction complete")
+    logging.info("Create h5 files complete")
