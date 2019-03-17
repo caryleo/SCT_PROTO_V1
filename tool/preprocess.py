@@ -266,6 +266,7 @@ def preprocess_features(opts, device):
         # extract features
         with torch.no_grad():
             feat_fc, feat_att = feature_net(input_img, attention_size)
+            logging.debug("%s %s" % (feat_fc.shape, feat_att.shape))
 
         file_of_fc_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_fc.cpu().float().numpy())
         file_of_att_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_att.cpu().float().numpy())
