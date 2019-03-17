@@ -261,6 +261,6 @@ def preprocess_features(opts, device):
                             feat=feat_att.data.cpu().float().numpy())
 
         if index % 1000 == 0:
-            logging.info('Processing %d / %d (%.2f%%)' % (index, num_images, input_image * 100.0 / N))
+            logging.info('Processing %d / %d (%.2f%%)' % (index, num_images, index * 100.0 / num_images))
 
     logging.info("Extraction complete")
