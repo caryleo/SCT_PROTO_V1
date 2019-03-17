@@ -257,8 +257,11 @@ def preprocess_features(opts, device):
         file_of_fc_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_fc.cpu().float().numpy())
         file_of_att_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_att.cpu().float().numpy())
 
-        if index % 1000 == 0:
+        if index % 100 == 0:
             logging.info('Processing %d / %d (%.2f%%)' % (index, num_images, index * 100.0 / num_images))
 
     logging.info("Extraction complete")
+
+    file_of_fc_feature.close()
+    file_of_att_feature.close()
     logging.info("Create h5 files complete")
