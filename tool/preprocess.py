@@ -19,6 +19,7 @@ import torch
 from torchvision import transforms, models
 
 import tool.netcore as netcore
+import misc.resnet as resnet
 
 
 def preprocess_captions(opts):
@@ -186,6 +187,16 @@ def preprocess_captions(opts):
 
 
 def preprocess_features(opts, device):
+    """
+    According to the opts to set the options about the preprocessing for features
+    Input json: the karpathy split
+    Output h5: 2 h5 files, one is for fc features and the other is for att feature, each image has a dataset, whose name
+        is its cocoid, storing its features extracted by resnet. dimension of fc features is (2048, ), while dimension
+        of att features is (att, att, 2048
+    :param opts: arguments
+    :param device: cuda device
+    :return: None
+    """
     # load file path
     path_to_input_json = opts.input_caption_json
     directory_of_output = opts.output_feature_directory
@@ -214,12 +225,14 @@ def preprocess_features(opts, device):
 
     # model, use the pretrained weights
     logging.info("Loading pretrained resnet model")
-    if model_name == "resnet50":
-        model = models.resnet50()
-    elif model_name == "resnet101":
-        model = models.resnet101()
-    else:
-        model = models.resnet152()
+    # if model_name == "resnet50":
+    #     model = models.resnet50()
+    # elif model_name == "resnet101":
+    #     model = models.resnet101()
+    # else:
+    #     model = models.resnet152()
+
+    model = getattr(resnet, model_name)()
 
     model.load_state_dict(torch.load(os.path.join(path_to_models, model_name + ".pth")))
     logging.debug("Current Model: \n" + model.__str__())

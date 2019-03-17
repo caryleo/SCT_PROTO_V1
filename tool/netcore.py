@@ -31,6 +31,6 @@ class my_resnet(nn.Module):
         x = self.resnet.layer4(x)
 
         fc = x.mean(3).mean(2).squeeze()  # 取fc特征，直接取均值到一个维度上
-        conv = F.adaptive_avg_pool2d(x, att_size).squeeze().permute(1, 2, 0)  # 取conv特征，取出来之后就将batch维度调整到第三维
+        conv = F.adaptive_avg_pool2d(x, [att_size, att_size]).squeeze().permute(1, 2, 0)  # 取conv特征，取出来之后就将batch维度调整到第三维
 
         return fc, conv

@@ -27,10 +27,10 @@ model_urls = {
 class ResNet(torchvision.models.resnet.ResNet):
     def __init__(self, block, layers, num_classes=1000):
         super(ResNet, self).__init__(block, layers, num_classes)
-        # self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True)  # change
-        # for i in range(2, 5):
-        #     getattr(self, 'layer%d' % i)[0].conv1.stride = (2, 2)
-        #     getattr(self, 'layer%d' % i)[0].conv2.stride = (1, 1)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True)  # change
+        for i in range(2, 5):
+            getattr(self, 'layer%d' % i)[0].conv1.stride = (2, 2)
+            getattr(self, 'layer%d' % i)[0].conv2.stride = (1, 1)
 
 
 def resnet18(pretrained=False):

@@ -78,8 +78,67 @@ def parse_arg_elka():
                         type=str,
                         help="directory of the models for feature extraction")
 
-    opts = parser.parse_args()
+    # training
+    parser.add_argument('-injson', "-input_json",
+                        type=str,
+                        default="data/sct_caps2idx.json",
+                        help="path to the input json containing the image info and vocabulary")
 
-    # validation
+    parser.add_argument('-infeatdir', "--input_features_directory",
+                        type=str,
+                        default="data/features",
+                        help="directory of h5 files containing fc features and att features")
+
+    parser.add_argument('-incaph5', "--input_captions_h5",
+                        type=str,
+                        default="data/sct_caps.h5",
+                        help="path to the input h5 containing the indexed captions and index")
+
+    parser.add_argument('-start', '--start_from',
+                        type=str,
+                        default=None,
+                        help="""continue training from saved model at this path. Path must contain files saved by previous training process: 
+                            'infos.pkl'         : configuration;
+                            'checkpoint'        : paths to model file(s) (created by tf).
+                                                  Note: this file contains absolute paths, be careful when moving files around;
+                            'model.ckpt-*'      : file(s) with model definition (created by tf)
+                        """)
+
+    parser.add_argument('-batch', "--batch_size",
+                        default=64,
+                        type=int,
+                        help="size of one mini-batch")
+
+    parser.add_argument('-capsperimg', "--captions_per_image",
+                        default=5,
+                        type=int,
+                        help="number of captions to sample for each image during training")
+
+    parser.add_argument('-beam', "--beam_size",
+                        default=1,
+                        type=int,
+                        help="beam search size")
+
+    parser.add_argument('-epo', "--epoch_num",
+                        default=25,
+                        type=int,
+                        help="number of epoch")
+
+    parser.add_argument('-dropout', "--dropout_prob",
+                        default=0.5,
+                        type=float,
+                        help="prob value for dropout")
+
+    parser.add_argument('-chkpt', "--checkpoint_path",
+                        type=str,
+                        default='save',
+                        help='directory to store checkpointed models')
+
+    parser.add_argument('-only', "--train_only",
+                        type=int,
+                        default=0,
+                        help='if 1 then use 80k, else use 110k, including restval')
+
+    opts = parser.parse_args()
 
     return opts
