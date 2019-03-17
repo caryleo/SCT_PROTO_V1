@@ -26,6 +26,11 @@ def parse_arg_elka():
                         action='store_true',
                         help="Debug mode")
 
+    # cuda device
+    parser.add_argument('-cuda' "--cuda_device",
+                        default=0,
+                        help="The cuda device")
+
     # preprocess captions
     parser.add_argument('-incapjson', "--input_caption_json",
                         default="",
