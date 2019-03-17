@@ -27,7 +27,7 @@ def parse_arg_elka():
                         help="Debug mode")
 
     # cuda device
-    parser.add_argument('-cuda' "--cuda_device",
+    parser.add_argument('-cuda', "--cuda_device",
                         default=0,
                         help="The cuda device")
 
