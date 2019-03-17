@@ -251,10 +251,10 @@ def preprocess_features(opts, device):
             input_image = np.concatenate((input_image, input_image, input_image), axis=2)
 
         input_image = input_image.astype('float32') / 255.0
-        input_image = torch.from_numpy(input_image.transpose([2, 0, 1])).to(device=device)
-        input_image = normalize(input_image)
+        input_img = torch.from_numpy(input_image.transpose([2, 0, 1])).to(device=device)
+        input_img = normalize(input_img).to(device=device)
         with torch.no_grad():
-            feat_fc, feat_att = feature_net(input_image, attention_size)
+            feat_fc, feat_att = feature_net(input_img, attention_size)
 
         np.save(os.path.join(directory_of_fc_feature, str(image['cocoid'])), feat_fc.data.cpu().float().numpy())
         np.savez_compressed(os.path.join(directory_of_att_feature, str(image['cocoid'])),
