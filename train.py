@@ -10,15 +10,20 @@ DESCRIPTION:    train core file
 
 import logging
 import os
+import time
+
 from six.moves import cPickle
+import torch
+import torch.optim as optim
 
 from tool.dataloader import DataLoader
 import models
-import misc.utils as utils
+import tool.utils as utils
+import tool.eval_utils as eval_utils
 
 try:
     import tensorflow as tf
-except:
+except ImportError:
     logging.warning("Tensorflow is not installed, no Tensorboard logging.")
     tf = None
 
@@ -41,118 +46,138 @@ def train(opts, device):
     # tensorflow summary
     tf_summary_writer = tf and tf.summary.FileWriter(opts.checkpoint_path)
 
-    infos = dict()
-    histories = dict()
+    info = dict()
+    history = dict()
     if opts.start_from is not None:
         logging.info("Starting from checkpoint")
-        # open old infos and check if models are compatible
-        with open(os.path.join(opts.start_from, 'infos_' + opts.train_id + '.pkl')) as infofile:
-            infos = cPickle.load(infofile)
-            saved_model_opts = infos['opts']
+
+        # open old info and check if models are compatible
+        with open(os.path.join(opts.start_from, 'info_' + opts.train_id + '.pkl')) as info_file:
+            info = cPickle.load(info_file)
+            saved_model_opts = info['opts']
             entries = ["caption_model", "rnn_type", "rnn_size", "num_layers"]
             for entry in entries:
                 assert vars(saved_model_opts)[entry] == vars(opts)[
                     entry], "Command line argument and saved model disagree on '%s' " % entry
 
-        if os.path.isfile(os.path.join(opts.start_from, 'histories_' + opts.train_id + '.pkl')):
-            with open(os.path.join(opts.start_from, 'histories_' + opts.train_id + '.pkl')) as historiesfile:
-                histories = cPickle.load(historiesfile)
+        if os.path.isfile(os.path.join(opts.start_from, 'history_' + opts.train_id + '.pkl')):
+            with open(os.path.join(opts.start_from, 'history_' + opts.train_id + '.pkl')) as history_file:
+                history = cPickle.load(history_file)
 
         logging.info("Load checkpoint complete")
 
-    iteration = infos.get('iter', 0)
-    epoch = infos.get('epoch', 0)
+    # load iter and epoch from info_file
+    iteration = info.get('iter', 0)
+    epoch = info.get('epoch', 0)
+    logging.info("Starting from: iter %6d - epoch %3d" % iteration, epoch)
 
-    val_result_history = histories.get('val_result_history', dict())
-    loss_history = histories.get('loss_history', dict())
-    lr_history = histories.get('lr_history', dict())
-    ss_prob_history = histories.get('ss_prob_history', dict())
+    # load results, losses, lr, and ss_prob from history_file
+    loss_history = history.get('loss_history', dict())
+    lr_history = history.get('lr_history', dict())
+    ss_prob_history = history.get('ss_prob_history', dict())
 
-    loader.iterators = infos.get('iterators', loader.iterators)
-    loader.split_index = infos.get('split_ix', loader.split_index)
+    val_result_history = history.get('val_result_history', dict())
+
+    # load iterators, split_index and best score (if existing), or use the dataloader
+    loader.iterators = info.get('iterators', loader.iterators)
+    loader.split_index = info.get('split_index', loader.split_index)
     if opts.load_best_score == 1:
-        best_val_score = infos.get('best_val_score', None)
+        best_val_score = info.get('best_val_score', None)
 
+    logging.info("Using model: %s" % opts.caption_model)
     model = models.setup(opts)
-    model.cuda(device=device)
+    model.to(device=device)
 
     update_lr_flag = True
     # Assure in training mode
     model.train()
 
-    crit = utils.LanguageModelCriterion()
+    criterion = utils.LanguageModelCriterion()
 
-    optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate, weight_decay=opt.weight_decay)
+    optimizer = optim.Adam(model.parameters(), lr=opts.learning_rate, weight_decay=opts.weight_decay)
 
     # Load the optimizer
-    if vars(opt).get('start_from', None) is not None:
-        optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
+    if vars(opts).get('start_from', None) is not None:
+        optimizer.load_state_dict(torch.load(os.path.join(opts.start_from, 'optimizer.pth')))
 
+    logging.info("Start training")
     while True:
+        # update learning rate, including lr_decay and schedule_sample
         if update_lr_flag:
             # Assign the learning rate
-            if epoch > opt.learning_rate_decay_start and opt.learning_rate_decay_start >= 0:
-                frac = (epoch - opt.learning_rate_decay_start) // opt.learning_rate_decay_every
-                decay_factor = opt.learning_rate_decay_rate ** frac
-                opt.current_lr = opt.learning_rate * decay_factor
-                utils.set_lr(optimizer, opt.current_lr)  # set the decayed rate
+            if epoch > opts.learning_rate_decay_start >= 0:
+                frac = (epoch - opts.learning_rate_decay_start) // opts.learning_rate_decay_every
+                decay_factor = opts.learning_rate_decay_rate ** frac
+                opts.current_lr = opts.learning_rate * decay_factor
+                # set the decayed rate
+                utils.set_lr(optimizer, opts.current_lr)
             else:
-                opt.current_lr = opt.learning_rate
+                opts.current_lr = opts.learning_rate
+
             # Assign the scheduled sampling prob
-            if epoch > opt.scheduled_sampling_start and opt.scheduled_sampling_start >= 0:
-                frac = (epoch - opt.scheduled_sampling_start) // opt.scheduled_sampling_increase_every
-                opt.ss_prob = min(opt.scheduled_sampling_increase_prob * frac, opt.scheduled_sampling_max_prob)
-                model.ss_prob = opt.ss_prob
+            if epoch > opts.scheduled_sampling_start >= 0:
+                frac = (epoch - opts.scheduled_sampling_start) // opts.scheduled_sampling_increase_every
+                opts.ss_prob = min(opts.scheduled_sampling_increase_prob * frac, opts.scheduled_sampling_max_prob)
+                model.ss_prob = opts.ss_prob
             update_lr_flag = False
 
-        start = time.time()
+        start_time = time.time()
+
         # Load data from train split (0)
         data = loader.get_batch('train')
-        print('Read data:', time.time() - start)
+        logging.info("Reading data time: %.3fs" % float(time.time() - start_time))
 
         torch.cuda.synchronize()
-        start = time.time()
 
-        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
-        tmp = [Variable(torch.from_numpy(_), requires_grad=False).cuda() for _ in tmp]
+        start_time = time.time()
+
+        tmp = [data['fc_feats'], data['att_feats'], data['captions'], data['masks']]
+        tmp = [torch.from_numpy(_).requires_grad(False).to(device=device) for _ in tmp]
         fc_feats, att_feats, labels, masks = tmp
 
         optimizer.zero_grad()
-        loss = crit(model(fc_feats, att_feats, labels), labels[:, 1:], masks[:, 1:])
+        # start from 1, 0 as START token
+        loss = criterion(model(fc_feats, att_feats, labels), labels[:, 1:], masks[:, 1:])
         loss.backward()
-        utils.clip_gradient(optimizer, opt.grad_clip)
+
+        utils.clip_gradient(optimizer, opts.grad_clip)
         optimizer.step()
+
         train_loss = loss.item()
+
         torch.cuda.synchronize()
         end = time.time()
-        print("iter {} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
-              .format(iteration, epoch, train_loss, end - start))
 
-        # Update the iteration and epoch
+        logging.info(
+            f"iter {iteration} (epoch {epoch}), train_loss = {train_loss:.3f}, time/batch = {end - start_time:.3f}")
+
+        # Update the iteration and epoch (if wrapped)
         iteration += 1
         if data['bounds']['wrapped']:
             epoch += 1
             update_lr_flag = True
 
         # Write the training loss summary
-        if (iteration % opt.losses_log_every == 0):
+        if iteration % opts.losses_log_every == 0:
             if tf is not None:
                 add_summary_value(tf_summary_writer, 'train_loss', train_loss, iteration)
-                add_summary_value(tf_summary_writer, 'learning_rate', opt.current_lr, iteration)
+                add_summary_value(tf_summary_writer, 'learning_rate', opts.current_lr, iteration)
                 add_summary_value(tf_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
                 tf_summary_writer.flush()
 
             loss_history[iteration] = train_loss
-            lr_history[iteration] = opt.current_lr
+            lr_history[iteration] = opts.current_lr
             ss_prob_history[iteration] = model.ss_prob
 
         # make evaluation on validation set, and save model
-        if (iteration % opt.save_checkpoint_every == 0):
+        if iteration % opts.save_checkpoint_every == 0:
+            logging.info("Start validation")
             # eval model
             eval_kwargs = {'split': 'val',
-                           'dataset': opt.input_json}
-            eval_kwargs.update(vars(opt))
-            val_loss, predictions, lang_stats = eval_utils.eval_split(model, crit, loader, eval_kwargs)
+                           'dataset': opts.input_json,
+                           'device': device}
+            eval_kwargs.update(vars(opts))
+            val_loss, predictions, lang_stats = eval_utils.eval_split(model, criterion, loader, eval_kwargs)
 
             # Write validation result into summary
             if tf is not None:
@@ -160,52 +185,55 @@ def train(opts, device):
                 for k, v in lang_stats.items():
                     add_summary_value(tf_summary_writer, k, v, iteration)
                 tf_summary_writer.flush()
+
             val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
             # Save model if is improving on validation result
-            if opt.language_eval == 1:
+            if opts.language_eval == 1:
                 current_score = lang_stats['CIDEr']
             else:
                 current_score = - val_loss
 
+            best_val_score = None
             best_flag = False
-            if True:  # if true
-                if best_val_score is None or current_score > best_val_score:
-                    best_val_score = current_score
-                    best_flag = True
-                checkpoint_path = os.path.join(opt.checkpoint_path, 'model.pth')
+
+            if best_val_score is None or current_score > best_val_score:
+                best_val_score = current_score
+                best_flag = True
+
+            checkpoint_path = os.path.join(opts.checkpoint_path, 'model.pth')
+            torch.save(model.state_dict(), checkpoint_path)
+            logging.info("model saved to {}".format(checkpoint_path))
+            optimizer_path = os.path.join(opts.checkpoint_path, 'optimizer.pth')
+            torch.save(optimizer.state_dict(), optimizer_path)
+
+            # Dump miscellaneous information
+            info['iter'] = iteration
+            info['epoch'] = epoch
+            info['iterators'] = loader.iterators
+            info['split_index'] = loader.split_index
+            info['best_val_score'] = best_val_score
+            info['opts'] = opts
+            info['vocabulary'] = loader.get_vocab()
+
+            history['val_result_history'] = val_result_history
+            history['loss_history'] = loss_history
+            history['lr_history'] = lr_history
+            history['ss_prob_history'] = ss_prob_history
+
+            with open(os.path.join(opts.checkpoint_path, 'info_' + opts.train_id + '.pkl'), 'wb') as infofile:
+                cPickle.dump(info, infofile)
+            with open(os.path.join(opts.checkpoint_path, 'history_' + opts.train_id + '.pkl'), 'wb') as historyfile:
+                cPickle.dump(history, historyfile)
+            logging.info("Checkpoint Saved")
+
+            if best_flag:
+                checkpoint_path = os.path.join(opts.checkpoint_path, 'model-best.pth')
                 torch.save(model.state_dict(), checkpoint_path)
                 print("model saved to {}".format(checkpoint_path))
-                optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer.pth')
-                torch.save(optimizer.state_dict(), optimizer_path)
-
-                # Dump miscalleous informations
-                infos['iter'] = iteration
-                infos['epoch'] = epoch
-                infos['iterators'] = loader.iterators
-                infos['split_ix'] = loader.split_ix
-                infos['best_val_score'] = best_val_score
-                infos['opt'] = opt
-                infos['vocab'] = loader.get_vocab()
-
-                histories['val_result_history'] = val_result_history
-                histories['loss_history'] = loss_history
-                histories['lr_history'] = lr_history
-                histories['ss_prob_history'] = ss_prob_history
-                with open(os.path.join(opt.checkpoint_path, 'infos_' + opt.id + '.pkl'), 'wb') as infofile:
-                    cPickle.dump(infos, infofile)
-                with open(os.path.join(opt.checkpoint_path, 'histories_' + opt.id + '.pkl'), 'wb') as infofile:
-                    cPickle.dump(histories, infofile)
-
-                if best_flag:
-                    checkpoint_path = os.path.join(opt.checkpoint_path, 'model-best.pth')
-                    torch.save(model.state_dict(), checkpoint_path)
-                    print("model saved to {}".format(checkpoint_path))
-                    with open(os.path.join(opt.checkpoint_path, 'infos_' + opt.id + '-best.pkl'), 'wb') as infofile:
-                        cPickle.dump(infos, infofile)
+                with open(os.path.join(opts.checkpoint_path, 'info_' + opts.train_id + '-best.pkl'), 'wb') as bestfile:
+                    cPickle.dump(info, bestfile)
 
         # Stop if reaching max epochs
-        if epoch >= opt.max_epochs and opt.max_epochs != -1:
+        if epoch >= opts.epoch_num != -1:
             break
-
-

@@ -14,6 +14,7 @@ import logging
 import torch
 
 from tool import options, preprocess
+import train
 
 
 if __name__ == "__main__":
@@ -49,6 +50,7 @@ if __name__ == "__main__":
     # check mode
     if opts.mode == 'train':
         logging.info("Current core mode: Training")
+        train.train(opts, device)
     elif opts.mode == 'eval':
         logging.info("Current core mode: Evaluating")
     elif opts.mode == 'precaps':

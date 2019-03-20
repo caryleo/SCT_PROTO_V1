@@ -238,7 +238,7 @@ def preprocess_features(opts, device):
     logging.debug("Current Model: \n" + model.__str__())
 
     feature_net = netcore.my_resnet(model)
-    feature_net.cuda(device=device)
+    feature_net.to(device=device)
     feature_net.eval()
     logging.info("Load pretrained resnet model complete")
 
@@ -256,11 +256,11 @@ def preprocess_features(opts, device):
         input_image = skimage.io.imread(os.path.join(image_root, image["filepath"], image["filename"]))
         # gray_scale images
         if len(input_image.shape) == 2:
-            input_image = input_image[:, :, np.newaxis]
+            input_image = input_image[:, :, np.newaxis]  # add one dimension
             input_image = np.concatenate((input_image, input_image, input_image), axis=2)
 
         input_image = input_image.astype('float32') / 255.0
-        input_img = torch.from_numpy(input_image.transpose([2, 0, 1])).cuda(device=device)
+        input_img = torch.from_numpy(input_image.transpose([2, 0, 1])).to(device=device)
         input_img = normalize(input_img).to(device=device)
 
         # extract features
@@ -268,8 +268,12 @@ def preprocess_features(opts, device):
             feat_fc, feat_att = feature_net(input_img, attention_size)
             logging.debug("%s %s" % (feat_fc.shape, feat_att.shape))
 
-        file_of_fc_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_fc.cpu().float().numpy())
-        file_of_att_feature.create_dataset(str(image["cocoid"]), dtype="float32", data=feat_att.cpu().float().numpy())
+        file_of_fc_feature.create_dataset(str(image["cocoid"]),
+                                          dtype="float32",
+                                          data=feat_fc.to("cpu", torch.float).numpy())
+        file_of_att_feature.create_dataset(str(image["cocoid"]),
+                                           dtype="float32",
+                                           data=feat_att.to("cpu", torch.float).numpy())
 
         if index % 100 == 0:
             logging.info('Processing %d / %d (%.2f%%)' % (index, num_images, index * 100.0 / num_images))
