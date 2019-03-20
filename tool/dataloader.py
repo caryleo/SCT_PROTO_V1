@@ -227,7 +227,7 @@ class BlobFetcher:
         """
         # batch_size is 0, the merge is done in DataLoader class
         sampler = ArraySampler(
-            self.dataloader.split_ix[self.split][self.dataloader.iterators[self.split]:])
+            self.dataloader.split_index[self.split][self.dataloader.iterators[self.split]:])
         self.split_loader = iter(
             data.DataLoader(dataset=self.dataloader,
                             batch_size=1,
@@ -238,17 +238,17 @@ class BlobFetcher:
                             collate_fn=lambda x: x[0]))
 
     def _get_next_minibatch_inds(self):
-        max_index = len(self.dataloader.split_ix[self.split])
+        max_index = len(self.dataloader.split_index[self.split])
         wrapped = False
 
         ri = self.dataloader.iterators[self.split]
-        ix = self.dataloader.split_ix[self.split][ri]
+        ix = self.dataloader.split_index[self.split][ri]
 
         ri_next = ri + 1
         if ri_next >= max_index:
             ri_next = 0
             if self.if_shuffle:
-                random.shuffle(self.dataloader.split_ix[self.split])
+                random.shuffle(self.dataloader.split_index[self.split])
             wrapped = True
         self.dataloader.iterators[self.split] = ri_next
 
