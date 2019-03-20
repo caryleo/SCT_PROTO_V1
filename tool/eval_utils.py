@@ -12,10 +12,10 @@ import tool.utils as utils
 def language_eval(dataset, preds, model_id, split):
     import sys
     if 'coco' in dataset:
-        sys.path.append("coco-caption")
+        sys.path.append("../coco-caption")
         annFile = 'coco-caption/annotations/captions_val2014.json'
     else:
-        sys.path.append("f30k-caption")
+        sys.path.append("../f30k-caption")
         annFile = 'f30k-caption/annotations/dataset_flickr30k.json'
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
@@ -139,6 +139,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     lang_stats = None
     if lang_eval == 1:
         lang_stats = language_eval(dataset, predictions, eval_kwargs['train_id'], split)
+
 
     # Switch back to training mode
     model.train()
