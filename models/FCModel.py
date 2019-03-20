@@ -14,7 +14,7 @@ class LSTMCore(nn.Module):
         super(LSTMCore, self).__init__()
         self.input_encoding_size = opt.input_encoding_size
         self.rnn_size = opt.rnn_size
-        self.drop_prob_lm = opt.drop_prob_lm
+        self.drop_prob_lm = opt.dropout_prob
         
         # Build a LSTM
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
@@ -45,13 +45,13 @@ class LSTMCore(nn.Module):
 class FCModel(CaptionModel):
     def __init__(self, opt):
         super(FCModel, self).__init__()
-        self.vocab_size = opt.vocab_size
+        self.vocab_size = opt.vocabulary_size
         self.input_encoding_size = opt.input_encoding_size
         self.rnn_type = opt.rnn_type
         self.rnn_size = opt.rnn_size
         self.num_layers = opt.num_layers
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.seq_length = opt.seq_length
+        self.drop_prob_lm = opt.dropout_prob
+        self.seq_length = opt.max_caption_length
         self.fc_feat_size = opt.fc_feat_size
 
         self.ss_prob = 0.0 # Schedule sampling probability
