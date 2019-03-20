@@ -287,6 +287,101 @@ def parse_arg_elka():
                         default=2500,
                         help='how often to save a model checkpoint (in iterations)')
 
+    # evaluation
+    parser.add_argument('-modpth', '--model_path',
+                        type=str,
+                        default='',
+                        help="path to the model to evaluate")
+
+    parser.add_argument('-infopth', "--info_path",
+                        type=str,
+                        default="",
+                        help="path to info to evaluate")
+
+    parser.add_argument('-images', "--num_images",
+                        type=int,
+                        default=-1,
+                        help='how many images to use when periodically evaluating the loss? (-1 = all)')
+
+    parser.add_argument('-dumpimg', '--dump_images',
+                        type=int,
+                        default=1,
+                        help='Dump images into vis/imgs folder for vis? (1=yes,0=no)')
+
+    parser.add_argument('-dumpjson', '--dump_json',
+                        type=int,
+                        default=1,
+                        help='Dump json with predictions into vis folder? (1=yes,0=no)')
+
+    parser.add_argument('-dumppth', '--dump_path',
+                        type=int,
+                        default=0,
+                        help='Write image paths along with predictions into vis json? (1=yes,0=no)')
+
+    parser.add_argument('-greedy', '--sample_greedy',
+                        type=int,
+                        default=1,
+                        help='1 = greedily decoding. 0 = sample.')
+
+    parser.add_argument('-ppl', '--max_ppl',
+                        type=int,
+                        default=0,
+                        help='beam search by max perplexity or max probability.')
+
+    parser.add_argument('-group', '--group_size',
+                        type=int,
+                        default=1,
+                        help='used for diverse beam search. if group_size is 1, then it\'s normal beam search')
+
+    parser.add_argument('-diver', '--diversity_lambda',
+                        type=float,
+                        default=0.5,
+                        help='used for diverse beam search. Usually from 0.2 to 0.8. Higher value of lambda produces '
+                             'a more diverse list')
+
+    parser.add_argument('-t', '--temperature',
+                        type=float,
+                        default=1.0,
+                        help='temperature when sampling from distributions (i.e. when sample_max = 0). Lower = '
+                             '"safer" predictions.')
+
+    parser.add_argument('-decodcon', '--decoding_constraint',
+                        type=int,
+                        default=0,
+                        help='If 1, not allowing same word in a row')
+
+    parser.add_argument('-img', '--image_folder',
+                        type=str,
+                        default='',
+                        help='If this is nonempty then will predict on the images in this folder path')
+
+    parser.add_argument('-s', '--split',
+                        type=str,
+                        default='test',
+                        help='if running on MS COCO images, which split to use: val|test|train')
+
+    parser.add_argument('-coco', '--coco_json',
+                        type=str,
+                        default='',
+                        help='if nonempty then use this file in DataLoaderRaw (see docs there). Used only in MS COCO '
+                             'test evaluation, where we have a specific json file of only test set images.')
+
+    parser.add_argument('-evalid', "--eval_id",
+                        type=str,
+                        default='',
+                        help='an id identifying this run/job. used only if language_eval = 1 for appending to '
+                             'intermediate files')
+
+    parser.add_argument('-verbeam', '--verbose_beam',
+                        type=int,
+                        default=1,
+                        help='if we need to print out all beam search beams.')
+
+    parser.add_argument('-verloss', '--verbose_loss',
+                        type=int,
+                        default=0,
+                        help='if we need to calculate loss.')
+
     opts = parser.parse_args()
 
     return opts

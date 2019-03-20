@@ -16,10 +16,10 @@ import os
 from PIL import Image
 import skimage.io
 import torch
-from torchvision import transforms, models
+from torchvision import transforms
 
 import tool.netcore as netcore
-import misc.resnet as resnet
+import tool.resnet as resnet
 
 
 def preprocess_captions(opts):

@@ -53,6 +53,7 @@ if __name__ == "__main__":
         train.train(opts, device)
     elif opts.mode == 'eval':
         logging.info("Current core mode: Evaluating")
+        eval(opts, device)
     elif opts.mode == 'precaps':
         logging.info("Current core mode: Preprocessing captions")
         preprocess.preprocess_captions(opts)
