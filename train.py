@@ -132,7 +132,7 @@ def train(opts, device):
         start_time = time.time()
 
         tmp = [data['fc_feats'], data['att_feats'], data['captions'], data['masks']]
-        tmp = [torch.from_numpy(_).requires_grad(False).to(device=device) for _ in tmp]
+        tmp = [torch.from_numpy(_).to(device=device) for _ in tmp]
         fc_feats, att_feats, labels, masks = tmp
 
         optimizer.zero_grad()
