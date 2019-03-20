@@ -11,12 +11,8 @@ import tool.utils as utils
 
 def language_eval(dataset, preds, model_id, split):
     import sys
-    if 'coco' in dataset:
-        sys.path.append("coco-caption")
-        annFile = 'coco-caption/annotations/captions_val2014.json'
-    else:
-        sys.path.append("f30k-caption")
-        annFile = 'f30k-caption/annotations/dataset_flickr30k.json'
+    sys.path.append("coco-caption")
+    annFile = 'coco-caption/annotations/captions_val2014.json'
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
 
@@ -117,7 +113,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                 os.system(cmd)
 
             if verbose:
-                print('image %s: %s' % (entry['image_id'], entry['caption']))
+                logging.info('image %s: %s' % (entry['image_id'], entry['caption']))
 
         # if we wrapped around the split or used up val imgs budget then bail
         ix0 = data['bounds']['it_pos_now']
@@ -129,7 +125,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             predictions.pop()
 
         if verbose:
-            print('evaluating validation preformance... %d/%d (%f)' % (ix0 - 1, ix1, loss))
+            logging.info('evaluating validation preformance... %d / %d (%f)' % (ix0 - 1, ix1, loss))
 
         if data['bounds']['wrapped']:
             break
