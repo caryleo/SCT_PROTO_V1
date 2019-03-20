@@ -164,7 +164,7 @@ class DataLoader(data.Dataset):
             # record associated info as well
             info_dict = {'index': ix,
                          'id': self.image_info['images'][ix]['cocoid'],
-                         'file_path': self.image_info['images'][ix]['file_path']}
+                         'file_path': self.image_info['images'][ix]['filepath']}
             info.append(info_dict)
 
         # generate mask
