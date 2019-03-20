@@ -140,7 +140,7 @@ def parse_arg_elka():
     parser.add_argument('-model', '--caption_model',
                         type=str,
                         default="fc",
-                        choices=["fc, att2in, tdbu, elka"],
+                        choices=["fc", "att2in", "tdbu", "elka"],
                         help="model we want to use")
 
     parser.add_argument('-rnn', '--rnn_size',
@@ -250,6 +250,11 @@ def parse_arg_elka():
                         type=float,
                         default=0.1,
                         help='clip gradients at this value')
+
+    parser.add_argument('-valimg', '--val_images_use',
+                        type=int,
+                        default=3200,
+                        help='how many images to use when periodically evaluating the validation loss? (-1 = all)')
 
     # check point
     parser.add_argument('-start', '--start_from',
