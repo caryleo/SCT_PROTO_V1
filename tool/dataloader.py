@@ -43,7 +43,7 @@ class DataLoader(data.Dataset):
 
     def get_data(self, ix):
         self.read_files()
-        index = str(self.image_info['images'][ix]['id'])
+        index = int(self.image_info['images'][ix]['id'])
         return (np.array(self.feats_fc[index]).astype('float32'),
                 np.array(self.feats_att[index]).astype('float32'), ix)
 
