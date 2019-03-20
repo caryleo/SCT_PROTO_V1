@@ -69,7 +69,7 @@ def train(opts, device):
     # load iter and epoch from info_file
     iteration = info.get('iter', 0)
     epoch = info.get('epoch', 0)
-    logging.info("Starting from: iter %d - epoch %d" % iteration, epoch)
+    logging.info("Starting from: iter %6d - epoch %3d" % (iteration, epoch))
 
     # load results, losses, lr, and ss_prob from history_file
     loss_history = history.get('loss_history', dict())
