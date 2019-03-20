@@ -146,10 +146,11 @@ def train(opts, device):
         train_loss = loss.item()
 
         torch.cuda.synchronize()
-        end = time.time()
+        end_time = time.time()
 
         logging.info(
-            f"iter {iteration} (epoch {epoch}), train_loss = {train_loss:.3f}, time/batch = {end - start_time:.3f}")
+            "iter {} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}"
+                .format(iteration, epoch, train_loss, end_time - start_time))
 
         # Update the iteration and epoch (if wrapped)
         iteration += 1
@@ -194,9 +195,7 @@ def train(opts, device):
             else:
                 current_score = - val_loss
 
-            best_val_score = None
             best_flag = False
-
             if best_val_score is None or current_score > best_val_score:
                 best_val_score = current_score
                 best_flag = True
