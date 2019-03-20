@@ -85,7 +85,7 @@ def parse_arg_elka():
                         help='an id identifying this run/job. used in cross-val and appended when writing progress '
                              'files')
 
-    parser.add_argument('-injson', "-input_json",
+    parser.add_argument('-injson', "--input_json",
                         type=str,
                         default="data/sct_caps2idx.json",
                         help="path to the input json containing the image info and vocabulary")
