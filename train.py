@@ -229,10 +229,12 @@ def train(opts, device):
             if best_flag:
                 checkpoint_path = os.path.join(opts.checkpoint_path, 'model-best.pth')
                 torch.save(model.state_dict(), checkpoint_path)
-                print("model saved to {}".format(checkpoint_path))
+                logging.info("model saved to {}".format(checkpoint_path))
                 with open(os.path.join(opts.checkpoint_path, 'info_' + opts.train_id + '-best.pkl'), 'wb') as bestfile:
                     cPickle.dump(info, bestfile)
 
+            logging.info("validation complete")
         # Stop if reaching max epochs
         if epoch >= opts.epoch_num != -1:
             break
+    logging.info("training complete")

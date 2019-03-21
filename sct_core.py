@@ -15,6 +15,7 @@ import torch
 
 from tool import options, preprocess
 import train
+import eval
 
 
 if __name__ == "__main__":
@@ -53,7 +54,7 @@ if __name__ == "__main__":
         train.train(opts, device)
     elif opts.mode == 'eval':
         logging.info("Current core mode: Evaluating")
-        eval(opts, device)
+        eval.evaluation(opts, device)
     elif opts.mode == 'precaps':
         logging.info("Current core mode: Preprocessing captions")
         preprocess.preprocess_captions(opts)

@@ -8,8 +8,7 @@ LAST MODIFIED:  2019.3.12
 DESCRIPTION:    eval core file
 """
 
-import json
-import numpy as np
+import logging
 
 from six.moves import cPickle
 
@@ -21,39 +20,45 @@ import tool.utils as utils
 import torch
 
 
-def eval(opts, device):
+def evaluation(opts, device):
     # Load infos
-    with open(opts.infos_path) as f:
-        infos = cPickle.load(f)
+    logging.info("Path to info: %s" % opts.info_path)
+    assert opts.info_path != '', "Info_path must be specified."
+    with open(opts.info_path) as info_file:
+        info = cPickle.load(info_file)
 
     # override and collect parameters
     if len(opts.input_fc_dir) == 0:
-        opts.input_fc_dir = infos['opts'].input_fc_dir
-        opts.input_att_dir = infos['opts'].input_att_dir
-        opts.input_box_dir = getattr(infos['opts'], 'input_box_dir', '')
-        opts.input_label_h5 = infos['opts'].input_label_h5
+        # opts.input_fc_dir = info['opts'].input_fc_dir
+        # opts.input_att_dir = info['opts'].input_att_dir
+        # opts.input_box_dir = getattr(info['opts'], 'input_box_dir', '')
+
+        opts.input_captions_h5 = info['opts'].input_captions_h5
+        opts.input_features_directory = info['opts'].input_features_directory
     if len(opts.input_json) == 0:
-        opts.input_json = infos['opts'].input_json
+        opts.input_json = info['opts'].input_json
     if opts.batch_size == 0:
-        opts.batch_size = infos['opts'].batch_size
-    if len(opts.id) == 0:
-        opts.id = infos['opts'].id
-    ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval"]
-    for k in vars(infos['opts']).keys():
+        opts.batch_size = info['opts'].batch_size
+    if len(opts.train_id) == 0:
+        opts.train_id = info['opts'].train_id
+
+    ignore = ["train_id", "batch_size", "beam_size", "start_from", "language_eval"]
+     
+    for k in vars(info['opts']).keys():
         if k not in ignore:
             if k in vars(opts):
-                assert vars(opts)[k] == vars(infos['opts'])[k], k + ' option not consistent'
+                assert vars(opts)[k] == vars(info['opts'])[k], k + ' option not consistent'
             else:
-                vars(opts).update({k: vars(infos['opts'])[k]})  # copy over options from model
+                vars(opts).update({k: vars(info['opts'])[k]})  # copy over options from model
 
-    vocab = infos['vocab']  # ix -> word mapping
+    vocabulary = info['vocabulary']  # ix -> word mapping
 
     # Setup the model
     model = models.setup(opts)
-    model.load_state_dict(torch.load(opts.model))
-    model.cuda()
+    model.load_state_dict(torch.load(opts.model_path))
+    model.to(device=device)
     model.eval()
-    crit = utils.LanguageModelCriterion()
+    criterion = utils.LanguageModelCriterion()
 
     # Create the Data Loader instance
     if len(opts.image_folder) == 0:
@@ -65,15 +70,15 @@ def eval(opts, device):
                                 'cnn_model': opts.cnn_model})
     # When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
     # So make sure to use the vocab in infos file.
-    loader.ix_to_word = infos['vocab']
+    loader.index_to_word = info['vocabulary']
 
     # Set sample options
-    loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader,
+    loss, split_predictions, lang_stats = eval_utils.eval_split(model, criterion, loader,
                                                                 vars(opts))
 
-    print('loss: ', loss)
-    if lang_stats:
-        print(lang_stats)
+    logging.info('loss: ', loss)
+    if lang_stats is not None:
+        logging.info(lang_stats)
 
     if opts.dump_json == 1:
         # dump the json

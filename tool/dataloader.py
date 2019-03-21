@@ -262,6 +262,6 @@ class BlobFetcher:
         tmp = self.split_loader.next()
         if wrapped:
             self.reset()
-        assert tmp[2] == ix, "ix not equal"
+        assert tmp[2] == ix, "index not equal"
 
         return tmp + [wrapped]
