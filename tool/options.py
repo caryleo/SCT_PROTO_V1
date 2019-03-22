@@ -305,12 +305,12 @@ def parse_arg_elka():
 
     parser.add_argument('-dumpimg', '--dump_images',
                         type=int,
-                        default=1,
+                        default=0,
                         help='Dump images into vis/imgs folder for vis? (1=yes,0=no)')
 
     parser.add_argument('-dumpjson', '--dump_json',
                         type=int,
-                        default=1,
+                        default=0,
                         help='Dump json with predictions into vis folder? (1=yes,0=no)')
 
     parser.add_argument('-dumppth', '--dump_path',
