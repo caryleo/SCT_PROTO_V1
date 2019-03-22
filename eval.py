@@ -68,6 +68,7 @@ def evaluation(opts, device):
                                 'coco_json': opts.coco_json,
                                 'batch_size': opts.batch_size,
                                 'cnn_model': opts.cnn_model})
+
     # When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
     # So make sure to use the vocab in infos file.
     loader.index_to_word = info['vocabulary']

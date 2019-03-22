@@ -149,8 +149,10 @@ def train(opts, device):
         end_time = time.time()
 
         logging.info(
-            "iter {} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}"
-                .format(iteration, epoch, train_loss, end_time - start_time))
+            "iter {} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" .format(iteration,
+                                                                                   epoch,
+                                                                                   train_loss,
+                                                                                   end_time - start_time))
 
         # Update the iteration and epoch (if wrapped)
         iteration += 1
@@ -237,4 +239,67 @@ def train(opts, device):
         # Stop if reaching max epochs
         if epoch >= opts.epoch_num != -1:
             break
+    # final round!
+    logging.info("Start validation")
+    # eval model
+    eval_kwargs = {'split': 'val',
+                   'dataset': opts.input_json,
+                   'device': device}
+    eval_kwargs.update(vars(opts))
+    val_loss, predictions, lang_stats = eval_utils.eval_split(model, criterion, loader, eval_kwargs)
+
+    # Write validation result into summary
+    if tf is not None:
+        add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
+        for k, v in lang_stats.items():
+            add_summary_value(tf_summary_writer, k, v, iteration)
+        tf_summary_writer.flush()
+
+    val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
+
+    # Save model if is improving on validation result
+    if opts.language_eval == 1:
+        current_score = lang_stats['CIDEr']
+    else:
+        current_score = - val_loss
+
+    best_flag = False
+    if best_val_score is None or current_score > best_val_score:
+        best_val_score = current_score
+        best_flag = True
+
+    checkpoint_path = os.path.join(opts.checkpoint_path, 'model.pth')
+    torch.save(model.state_dict(), checkpoint_path)
+    logging.info("model saved to {}".format(checkpoint_path))
+    optimizer_path = os.path.join(opts.checkpoint_path, 'optimizer.pth')
+    torch.save(optimizer.state_dict(), optimizer_path)
+
+    # Dump miscellaneous information
+    info['iter'] = iteration
+    info['epoch'] = epoch
+    info['iterators'] = loader.iterators
+    info['split_index'] = loader.split_index
+    info['best_val_score'] = best_val_score
+    info['opts'] = opts
+    info['vocabulary'] = loader.get_vocab()
+
+    history['val_result_history'] = val_result_history
+    history['loss_history'] = loss_history
+    history['lr_history'] = lr_history
+    history['ss_prob_history'] = ss_prob_history
+
+    with open(os.path.join(opts.checkpoint_path, 'info_' + opts.train_id + '.pkl'), 'wb') as infofile:
+        cPickle.dump(info, infofile)
+    with open(os.path.join(opts.checkpoint_path, 'history_' + opts.train_id + '.pkl'), 'wb') as historyfile:
+        cPickle.dump(history, historyfile)
+    logging.info("Checkpoint Saved")
+
+    if best_flag:
+        checkpoint_path = os.path.join(opts.checkpoint_path, 'model-best.pth')
+        torch.save(model.state_dict(), checkpoint_path)
+        logging.info("model saved to {}".format(checkpoint_path))
+        with open(os.path.join(opts.checkpoint_path, 'info_' + opts.train_id + '-best.pkl'), 'wb') as bestfile:
+            cPickle.dump(info, bestfile)
+
+    logging.info("validation complete")
     logging.info("training complete")

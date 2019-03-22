@@ -16,25 +16,25 @@ preprocess = trn.Compose([
     trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-from tool.resnet_utils import myResnet
+from tool.netcore import my_resnet
 import tool.resnet
 
 
 class DataLoaderRaw():
 
-    def __init__(self, opt):
-        self.opt = opt
-        self.coco_json = opt.get('coco_json', '')
-        self.folder_path = opt.get('folder_path', '')
+    def __init__(self, opts):
+        self.opt = opts
+        self.coco_json = opts.get('coco_json', '')
+        self.folder_path = opts.get('folder_path', '')
 
-        self.batch_size = opt.get('batch_size', 1)
+        self.batch_size = opts.get('batch_size', 1)
         self.seq_per_img = 1
 
         # Load resnet
-        self.cnn_model = opt.get('cnn_model', 'resnet101')
+        self.cnn_model = opts.get('cnn_model', 'resnet101')
         self.my_resnet = getattr(tool.resnet, self.cnn_model)()
         self.my_resnet.load_state_dict(torch.load('./data/imagenet_weights/' + self.cnn_model + '.pth'))
-        self.my_resnet = myResnet(self.my_resnet)
+        self.my_resnet = my_resnet(self.my_resnet)
         self.my_resnet.cuda()
         self.my_resnet.eval()
 
@@ -46,7 +46,7 @@ class DataLoaderRaw():
 
         print(len(self.coco_json))
         if len(self.coco_json) > 0:
-            print('reading from ' + opt.coco_json)
+            print('reading from ' + opts.coco_json)
             # read in filenames from the coco-style json file
             self.coco_annotation = json.load(open(self.coco_json))
             for k, v in enumerate(self.coco_annotation['images']):
