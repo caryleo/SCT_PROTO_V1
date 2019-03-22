@@ -16,18 +16,19 @@ from torch.autograd import *
 
 from .CaptionModel import CaptionModel
 
+
 class Att2inCore(nn.Module):
     def __init__(self, opt):
         super(Att2inCore, self).__init__()
         self.input_encoding_size = opt.input_encoding_size
-        #self.rnn_type = opt.rnn_type
+        # self.rnn_type = opt.rnn_type
         self.rnn_size = opt.rnn_size
-        #self.num_layers = opt.num_layers
+        # self.num_layers = opt.num_layers
         self.drop_prob_lm = opt.drop_prob_lm
         self.fc_feat_size = opt.fc_feat_size
         self.att_feat_size = opt.att_feat_size
         self.att_hid_size = opt.att_hid_size
-        
+
         # Build a LSTM
         self.a2c = nn.Linear(self.att_feat_size, 2 * self.rnn_size)
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
@@ -41,18 +42,18 @@ class Att2inCore(nn.Module):
         # The p_att_feats here is already projected
         att_size = att_feats.numel() // att_feats.size(0) // self.att_feat_size
         att = p_att_feats.view(-1, att_size, self.att_hid_size)
-        
-        att_h = self.h2att(state[0][-1])                        # batch * att_hid_size
-        att_h = att_h.unsqueeze(1).expand_as(att)            # batch * att_size * att_hid_size
-        dot = att + att_h                                   # batch * att_size * att_hid_size
-        dot = F.tanh(dot)                                # batch * att_size * att_hid_size
-        dot = dot.view(-1, self.att_hid_size)               # (batch * att_size) * att_hid_size
-        dot = self.alpha_net(dot)                           # (batch * att_size) * 1
-        dot = dot.view(-1, att_size)                        # batch * att_size
-        
-        weight = F.softmax(dot)                             # batch * att_size
-        att_feats_ = att_feats.view(-1, att_size, self.att_feat_size) # batch * att_size * att_feat_size
-        att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
+
+        att_h = self.h2att(state[0][-1])  # batch * att_hid_size
+        att_h = att_h.unsqueeze(1).expand_as(att)  # batch * att_size * att_hid_size
+        dot = att + att_h  # batch * att_size * att_hid_size
+        dot = F.tanh(dot)  # batch * att_size * att_hid_size
+        dot = dot.view(-1, self.att_hid_size)  # (batch * att_size) * att_hid_size
+        dot = self.alpha_net(dot)  # (batch * att_size) * 1
+        dot = dot.view(-1, att_size)  # batch * att_size
+
+        weight = F.softmax(dot)  # batch * att_size
+        att_feats_ = att_feats.view(-1, att_size, self.att_feat_size)  # batch * att_size * att_feat_size
+        att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1)  # batch * att_feat_size
 
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
@@ -62,8 +63,8 @@ class Att2inCore(nn.Module):
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
 
         in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + \
-            self.a2c(att_res)
-        in_transform = torch.max(\
+                       self.a2c(att_res)
+        in_transform = torch.max( \
             in_transform.narrow(1, 0, self.rnn_size),
             in_transform.narrow(1, self.rnn_size, self.rnn_size))
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
@@ -73,26 +74,27 @@ class Att2inCore(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
-class Att2inModel(CaptionModel):
-    def __init__(self, opt):
-        super(Att2inModel, self).__init__()
-        self.vocab_size = opt.vocab_size
-        self.input_encoding_size = opt.input_encoding_size
-        #self.rnn_type = opt.rnn_type
-        self.rnn_size = opt.rnn_size
-        self.num_layers = 1
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.seq_length = opt.seq_length
-        self.fc_feat_size = opt.fc_feat_size
-        self.att_feat_size = opt.att_feat_size
-        self.att_hid_size = opt.att_hid_size
 
-        self.ss_prob = 0.0 # Schedule sampling probability
+class Att2inModel(CaptionModel):
+    def __init__(self, opts):
+        super(Att2inModel, self).__init__()
+        self.vocab_size = opts.vocabulary_size
+        self.input_encoding_size = opts.input_encoding_size
+        # self.rnn_type = opt.rnn_type
+        self.rnn_size = opts.rnn_size
+        self.num_layers = 1
+        self.drop_prob_lm = opts.drop_prob_lm
+        self.seq_length = opts.seq_length
+        self.fc_feat_size = opts.fc_feat_size
+        self.att_feat_size = opts.att_feat_size
+        self.att_hid_size = opts.att_hid_size
+
+        self.ss_prob = 0.0  # Schedule sampling probability
 
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
         self.ctx2att = nn.Linear(self.att_feat_size, self.att_hid_size)
-        self.core = Att2inCore(opt)
+        self.core = Att2inCore(opts)
 
         self.init_weights()
 
@@ -118,7 +120,7 @@ class Att2inModel(CaptionModel):
         p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
 
         for i in range(seq.size(1) - 1):
-            if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
+            if self.training and i >= 1 and self.ss_prob > 0.0:  # otherwiste no need to sample
                 sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
                 sample_mask = sample_prob < self.ss_prob
                 if sample_mask.sum() == 0:
@@ -126,14 +128,14 @@ class Att2inModel(CaptionModel):
                 else:
                     sample_ind = sample_mask.nonzero().view(-1)
                     it = seq[:, i].data.clone()
-                    #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
-                    #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-                    prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
+                    # prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
+                    # it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
+                    prob_prev = torch.exp(outputs[-1].data)  # fetch prev distribution: shape Nx(M+1)
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
                     it = Variable(it, requires_grad=False)
             else:
-                it = seq[:, i].clone()          
-            # break if all the sequences end
+                it = seq[:, i].clone()
+                # break if all the sequences end
             if i >= 1 and seq[:, i].data.sum() == 0:
                 break
 
@@ -170,20 +172,21 @@ class Att2inModel(CaptionModel):
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
             state = self.init_hidden(beam_size)
-            tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, self.fc_feat_size)
-            tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:])).contiguous()
-            tmp_p_att_feats = p_att_feats[k:k+1].expand(*((beam_size,)+p_att_feats.size()[1:])).contiguous()
+            tmp_fc_feats = fc_feats[k:k + 1].expand(beam_size, self.fc_feat_size)
+            tmp_att_feats = att_feats[k:k + 1].expand(*((beam_size,) + att_feats.size()[1:])).contiguous()
+            tmp_p_att_feats = p_att_feats[k:k + 1].expand(*((beam_size,) + p_att_feats.size()[1:])).contiguous()
 
             for t in range(1):
-                if t == 0: # input <bos>
+                if t == 0:  # input <bos>
                     it = fc_feats.data.new(beam_size).long().zero_()
                     xt = self.embed(Variable(it, requires_grad=False))
 
                 output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state)
                 logprobs = F.log_softmax(self.logit(output))
 
-            self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, opt=opt)
-            seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
+            self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats,
+                                                  opt=opt)
+            seq[:, k] = self.done_beams[k][0]['seq']  # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
@@ -205,20 +208,21 @@ class Att2inModel(CaptionModel):
         seq = []
         seqLogprobs = []
         for t in range(self.seq_length + 1):
-            if t == 0: # input <bos>
+            if t == 0:  # input <bos>
                 it = fc_feats.data.new(batch_size).long().zero_()
             elif sample_max:
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
             else:
                 if temperature == 1.0:
-                    prob_prev = torch.exp(logprobs.data).cpu() # fetch prev distribution: shape Nx(M+1)
+                    prob_prev = torch.exp(logprobs.data).cpu()  # fetch prev distribution: shape Nx(M+1)
                 else:
                     # scale logprobs by temperature
                     prob_prev = torch.exp(torch.div(logprobs.data, temperature)).cpu()
                 it = torch.multinomial(prob_prev, 1).cuda()
-                sampleLogprobs = logprobs.gather(1, Variable(it, requires_grad=False)) # gather the logprobs at sampled positions
-                it = it.view(-1).long() # and flatten indices for downstream processing
+                sampleLogprobs = logprobs.gather(1, Variable(it,
+                                                             requires_grad=False))  # gather the logprobs at sampled positions
+                it = it.view(-1).long()  # and flatten indices for downstream processing
 
             xt = self.embed(Variable(it, requires_grad=False))
 
@@ -231,7 +235,7 @@ class Att2inModel(CaptionModel):
                 if unfinished.sum() == 0:
                     break
                 it = it * unfinished.type_as(it)
-                seq.append(it) #seq[t] the input of t+2 time step
+                seq.append(it)  # seq[t] the input of t+2 time step
 
                 seqLogprobs.append(sampleLogprobs.view(-1))
 
