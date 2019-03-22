@@ -83,8 +83,8 @@ class Att2inModel(CaptionModel):
         # self.rnn_type = opt.rnn_type
         self.rnn_size = opts.rnn_size
         self.num_layers = 1
-        self.drop_prob_lm = opts.drop_prob_lm
-        self.seq_length = opts.seq_length
+        self.drop_prob_lm = opts.dropout_prob
+        self.seq_length = opts.max_caption_length
         self.fc_feat_size = opts.fc_feat_size
         self.att_feat_size = opts.att_feat_size
         self.att_hid_size = opts.att_hid_size
