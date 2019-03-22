@@ -18,16 +18,16 @@ from .CaptionModel import CaptionModel
 
 
 class Att2inCore(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opts):
         super(Att2inCore, self).__init__()
-        self.input_encoding_size = opt.input_encoding_size
+        self.input_encoding_size = opts.input_encoding_size
         # self.rnn_type = opt.rnn_type
-        self.rnn_size = opt.rnn_size
+        self.rnn_size = opts.rnn_size
         # self.num_layers = opt.num_layers
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.fc_feat_size = opt.fc_feat_size
-        self.att_feat_size = opt.att_feat_size
-        self.att_hid_size = opt.att_hid_size
+        self.drop_prob_lm = opts.dropout_prob
+        self.fc_feat_size = opts.fc_feat_size
+        self.att_feat_size = opts.att_feat_size
+        self.att_hid_size = opts.att_hid_size
 
         # Build a LSTM
         self.a2c = nn.Linear(self.att_feat_size, 2 * self.rnn_size)
@@ -164,7 +164,8 @@ class Att2inModel(CaptionModel):
         p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size))
         p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
 
-        assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
+        assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few ' \
+                                                 'headaches down the road. can be dealt with in future if needed '
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
         seqLogprobs = torch.FloatTensor(self.seq_length, batch_size)
         # lets process every image independently for now, for simplicity
