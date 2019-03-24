@@ -140,7 +140,7 @@ def parse_arg_elka():
     parser.add_argument('-model', '--caption_model',
                         type=str,
                         default="fc",
-                        choices=["fc", "att2in", "tdbu", "elka"],
+                        choices=["fc", "att2in", "tdbu", "att2in2", "adaatt", "adaattmo", "elka"],
                         help="model we want to use")
 
     parser.add_argument('-rnn', '--rnn_size',

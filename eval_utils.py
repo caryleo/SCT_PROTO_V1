@@ -1,4 +1,3 @@
-
 import torch
 import logging
 
@@ -125,7 +124,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             predictions.pop()
 
         if verbose:
-            logging.info('evaluating validation preformance... %d / %d (%f)' % (ix0 - 1, ix1, loss))
+            logging.info('evaluating validation performance... %d / %d (%f)' % (ix0 - 1, ix1, loss))
 
         if data['bounds']['wrapped']:
             break
@@ -135,7 +134,6 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     lang_stats = None
     if lang_eval == 1:
         lang_stats = language_eval(dataset, predictions, eval_kwargs['train_id'], split)
-
 
     # Switch back to training mode
     model.train()
