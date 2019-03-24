@@ -78,8 +78,8 @@ class FCModel(CaptionModel):
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
         if self.rnn_type == 'lstm':
-            return (Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()),
-                    Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()))
+            return (weight.new(self.num_layers, bsz, self.rnn_size).zero_(),
+                    weight.new(self.num_layers, bsz, self.rnn_size).zero_())
         else:
             return Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_())
 
