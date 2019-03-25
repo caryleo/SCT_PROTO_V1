@@ -17,34 +17,38 @@ class LSTMCore(nn.Module):
         self.rnn_size = opt.rnn_size
         self.drop_prob_lm = opt.dropout_prob
 
-        # Build a LSTM
+        # Build a LSTM 两个参数都是一个思路，一个向量进去，一个5倍向量出来
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
         self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
         self.dropout = nn.Dropout(self.drop_prob_lm)
 
     def forward(self, xt, state):
+        # 隐藏状态和输入单词做线性变换后加和，-1表示取最近一层的结果
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
 
-        # first 3 column: in, forget, and out
+        # 一次性算出一个5倍单位长的向量，前三个单位长分别是输入门，遗忘门和输出门，注意还有一次sigmoid变换
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
         sigmoid_chunk = F.sigmoid(sigmoid_chunk)
         in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)
         forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
 
-        # maxout activation
+        # 后两个单位长相当如两个输出，做maxout操作（取最大）
         in_transform = torch.max(
             all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size),
             all_input_sums.narrow(1, 4 * self.rnn_size, self.rnn_size))
 
+        # 计算新的记忆和隐藏状态
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
         next_h = out_gate * F.tanh(next_c)
 
-        # dropout after h
+        # 隐藏状态额外来一层dropout
         next_h = self.dropout(next_h)
 
+        # 分两路输出，一个是隐藏状态准备映射成 batch_size * rnn_size
         output = next_h
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
+
         return output, state
 
 
@@ -62,53 +66,75 @@ class FCModel(CaptionModel):
 
         self.ss_prob = 0.0  # Schedule sampling probability
 
+        # 图片输入映射，从特征长度到编码长度
         self.img_embed = nn.Linear(self.fc_feat_size, self.input_encoding_size)
         self.core = LSTMCore(opts)
+        # 描述输入映射，从单词表长度到编码长度
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
+        # 输出映射，从编码长度到单词表长度
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
 
         self.init_weights()
 
     def init_weights(self):
+        # 初始化权重，描述嵌入和输出的随机值限制在正负0.1之间
         initrange = 0.1
         self.embed.weight.data.uniform_(-initrange, initrange)
         self.logit.bias.data.fill_(0)
         self.logit.weight.data.uniform_(-initrange, initrange)
 
     def init_hidden(self, bsz):
+        # 隐藏状态的初始化，LSTM是两个量，GRU和RNN都是一个量
         weight = next(self.parameters()).data
         if self.rnn_type == 'lstm':
             return (weight.new(self.num_layers, bsz, self.rnn_size).zero_(),
                     weight.new(self.num_layers, bsz, self.rnn_size).zero_())
         else:
-            return Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_())
+            return weight.new(self.num_layers, bsz, self.rnn_size).zero_()
 
     def forward(self, fc_feats, att_feats, seq):
+        # batch大小就是特征的行数
         batch_size = fc_feats.size(0)
+
+        # 初始状态，隐藏和记忆都是0
         state = self.init_hidden(batch_size)
+
+        # 所有层的输出
         outputs = list()
 
+        # 按照时间点迭代，实际就是按照从左到右的顺序迭代
         for i in range(seq.size(1)):
+            # 0时刻输入：图像特征
             if i == 0:
                 xt = self.img_embed(fc_feats)
+
+            # 从1时刻开始都是逐个单词了
             else:
-                if self.training and i >= 2 and self.ss_prob > 0.0:  # otherwiste no need to sample
+                # 从第2个时刻开始进度采样
+                if self.training and i >= 2 and self.ss_prob > 0.0:
+                    # 因为一次只迭代一个词， 所以这个时候只看对于没一个参考描述的情况即可
                     sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
+                    # 掩模：只考虑概率大于进度取样的概率（定义使然）
                     sample_mask = sample_prob < self.ss_prob
+                    # 没有满足要求的取样结果：根据进度取样的定义，直接复制该时间点的输入
                     if sample_mask.sum() == 0:
                         it = seq[:, i - 1].clone()
                     else:
+                        # 有满足要求的概率分布，取出满足要求的项的索引
                         sample_ind = sample_mask.nonzero().view(-1)
                         it = seq[:, i - 1].data.clone()
                         # prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
                         # it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-                        prob_prev = torch.exp(outputs[-1].data)  # fetch prev distribution: shape Nx(M+1)
-                        it.index_copy_(0, sample_ind,
+
+                        # 做一次指数化，用于后面的多项式分布 batch_size * rnn_size
+                        prob_prev = torch.exp(outputs[-1].data)
+                        it.index_copy_(0,
+                                       sample_ind,
                                        torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
-                        it = Variable(it, requires_grad=False)
+                        it.requires_grad = False
                 else:
                     it = seq[:, i - 1].clone()
-                # break if all the sequences end
+                # break if all the sequences end 在适当的情况下终止循环
                 if i >= 2 and seq[:, i - 1].data.sum() == 0:
                     break
                 xt = self.embed(it)
@@ -119,6 +145,7 @@ class FCModel(CaptionModel):
 
         return torch.cat([_.unsqueeze(1) for _ in outputs[1:]], 1).contiguous()
 
+    # 跑一趟
     def get_logprobs_state(self, it, state):
         # 'it' is Variable contraining a word index
         xt = self.embed(it)
@@ -129,23 +156,33 @@ class FCModel(CaptionModel):
         return logprobs, state
 
     def sample_beam(self, fc_feats, att_feats, opt={}):
+        # 取集束宽度和批大小
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
+        assert beam_size <= self.vocab_size + 1,\
+            'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt ' \
+            'with in future if needed '
 
-        assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
+        # 貌似是把维度反过来了
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
         seqLogprobs = torch.FloatTensor(self.seq_length, batch_size)
-        # lets process every image independently for now, for simplicity
 
+        # lets process every image independently for now, for simplicity
         self.done_beams = [[] for _ in range(batch_size)]
+
         for k in range(batch_size):
+            # 每一张图片独立处理，产生一个束的采样
             state = self.init_hidden(beam_size)
+
             for t in range(2):
                 if t == 0:
+                    # 一张图扩展到整个束，分别采样（相当与一个batch）
                     xt = self.img_embed(fc_feats[k:k + 1]).expand(beam_size, self.input_encoding_size)
                 elif t == 1:  # input <bos>
+                    # 貌似broadcast了
                     it = fc_feats.data.new(beam_size).long().zero_()
-                    xt = self.embed(Variable(it, requires_grad=False))
+                    it.requires_grad = False
+                    xt = self.embed(it)
 
                 output, state = self.core(xt, state)
                 logprobs = F.log_softmax(self.logit(output))
