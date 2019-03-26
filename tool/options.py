@@ -92,7 +92,7 @@ def parse_arg_elka():
 
     parser.add_argument('-infeatdir', "--input_features_directory",
                         type=str,
-                        default="data/features",
+                        default="",
                         help="directory of h5 files containing fc features and att features")
 
     parser.add_argument('-incaph5', "--input_captions_h5",
