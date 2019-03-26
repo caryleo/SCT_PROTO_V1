@@ -1,3 +1,6 @@
+# !/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+
 """
 FILENAME:       eval.py
 BY:             Gary 2019.3.12
@@ -21,8 +24,8 @@ def evaluation(opts, device):
     # Load infos
     logging.info("Path to info: %s" % opts.info_path)
     assert opts.info_path != '', "Info_path must be specified."
-    with open(opts.info_path) as info_file:
-        info = cPickle.load(info_file, 'rb')
+    with open(opts.info_path, 'rb') as info_file:
+        info = cPickle.load(info_file)
 
     opts.update({'split': 'test'})
 
