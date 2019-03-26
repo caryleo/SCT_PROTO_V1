@@ -190,13 +190,16 @@ class FCModel(CaptionModel):
             self.done_beams[k] = self.beam_search(state, logprobs, opt=opt)
             seq[:, k] = self.done_beams[k][0]['seq']  # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
+
+        # 一个束搞定
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
     def sample(self, fc_feats, att_feats, opt={}):
-        sample_max = opt.get('sample_max', 1)
+        sample_max = opt.get('max_caption_length', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
+        # 采样的时候开了集束搜索
         if beam_size > 1:
             return self.sample_beam(fc_feats, att_feats, opt)
 
