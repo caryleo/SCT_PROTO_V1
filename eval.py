@@ -30,7 +30,7 @@ def evaluation(opts, device):
     vars(opts).update({'split': 'test'})
 
     # override and collect parameters
-    if len(opts.input_fc_dir) == 0:
+    if len(opts.input_features_directory) == 0:
         # opts.input_fc_dir = info['opts'].input_fc_dir
         # opts.input_att_dir = info['opts'].input_att_dir
         # opts.input_box_dir = getattr(info['opts'], 'input_box_dir', '')
