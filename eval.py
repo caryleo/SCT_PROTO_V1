@@ -44,7 +44,7 @@ def evaluation(opts, device):
     if len(opts.train_id) == 0:
         opts.train_id = info['opts'].train_id
 
-    ignore = ["train_id", "batch_size", "beam_size", "start_from", "language_eval"]
+    ignore = ["mode", "train_id", "batch_size", "beam_size", "start_from", "language_eval"]
      
     for k in vars(info['opts']).keys():
         if k not in ignore:
