@@ -46,15 +46,16 @@ def evaluation(opts, device):
     if len(opts.train_id) == 0:
         opts.train_id = info['opts'].train_id
 
-    ignore = ["mode", "train_id", "batch_size", "beam_size", "start_from", "language_eval", "model_path", "eval_id",
-              "num_images", "cuda_device", "checkpoint_path"]
-     
+    # ignore = ["mode", "train_id", "batch_size", "beam_size", "start_from", "language_eval", "model_path", "eval_id",
+    #           "num_images", "cuda_device", "checkpoint_path"]
+
     for k in vars(info['opts']).keys():
-        if k not in ignore:
-            if k in vars(opts):
-                assert vars(opts)[k] == vars(info['opts'])[k], k + ' option not consistent'
-            else:
-                vars(opts).update({k: vars(info['opts'])[k]})  # copy over options from model
+        # if k not in ignore:
+        if k in vars(opts):
+            # assert vars(opts)[k] == vars(info['opts'])[k], k + ' option not consistent'
+            logging.warning("%s option not consistent" % k)
+        else:
+            vars(opts).update({k: vars(info['opts'])[k]})  # copy over options from model
 
     vocabulary = info['vocabulary']  # ix -> word mapping
 
