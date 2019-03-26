@@ -68,6 +68,7 @@ def evaluation(opts, device):
 
     model.eval()
     criterion = utils.LanguageModelCriterion()
+    criterion.to(device=device)
 
     # Create the Data Loader instance
     if len(opts.image_folder) == 0:
