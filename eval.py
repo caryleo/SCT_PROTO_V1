@@ -29,6 +29,7 @@ def evaluation(opts, device):
         info = cPickle.load(info_file)
 
     vars(opts).update({'split': 'test'})
+    opts.caption_model = info['opts'].caption_model
 
     # override and collect parameters
     if len(opts.input_features_directory) == 0:
