@@ -63,6 +63,9 @@ def evaluation(opts, device):
     model = models.setup(opts)
     model.load_state_dict(torch.load(opts.model_path))
     model.to(device=device)
+    for parameter in model.parameters():
+        parameter.to(device=device)
+
     model.eval()
     criterion = utils.LanguageModelCriterion()
 
