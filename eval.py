@@ -27,7 +27,7 @@ def evaluation(opts, device):
     with open(opts.info_path, 'rb') as info_file:
         info = cPickle.load(info_file)
 
-    opts.update({'split': 'test'})
+    vars(opts).update({'split': 'test'})
 
     # override and collect parameters
     if len(opts.input_fc_dir) == 0:
