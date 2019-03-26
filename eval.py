@@ -23,6 +23,7 @@ import torch
 def evaluation(opts, device):
     # Load infos
     logging.info("Path to info: %s" % opts.info_path)
+    logging.info("Path to model: %s" % opts.model_path)
     assert opts.info_path != '', "Info_path must be specified."
     with open(opts.info_path, 'rb') as info_file:
         info = cPickle.load(info_file)
@@ -44,7 +45,7 @@ def evaluation(opts, device):
     if len(opts.train_id) == 0:
         opts.train_id = info['opts'].train_id
 
-    ignore = ["mode", "train_id", "batch_size", "beam_size", "start_from", "language_eval"]
+    ignore = ["mode", "train_id", "batch_size", "beam_size", "start_from", "language_eval", "model_path"]
      
     for k in vars(info['opts']).keys():
         if k not in ignore:
