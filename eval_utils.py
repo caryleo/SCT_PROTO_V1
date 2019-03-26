@@ -57,7 +57,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     dataset = eval_kwargs.get('dataset', 'coco')
     beam_size = eval_kwargs.get('beam_size', 1)
     device = eval_kwargs.get('device', eval_kwargs.get('cuda_device', torch.device("cuda:0")))
-
+    logging.info("Evaluating by device: %s", device)
     # Make sure in the evaluation mode
     model.eval()
 
