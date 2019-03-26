@@ -87,9 +87,9 @@ def evaluation(opts, device):
     loss, split_predictions, lang_stats = eval_utils.eval_split(model, criterion, loader,
                                                                 vars(opts))
 
-    logging.info('loss: ', loss)
+    logging.info('loss: %f' % loss)
     if lang_stats is not None:
-        logging.info(lang_stats)
+        logging.info("Results: \n" + json.dumps(lang_stats))
 
     if opts.dump_json == 1:
         # dump the json
