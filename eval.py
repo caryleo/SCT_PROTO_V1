@@ -22,7 +22,7 @@ def evaluation(opts, device):
     logging.info("Path to info: %s" % opts.info_path)
     assert opts.info_path != '', "Info_path must be specified."
     with open(opts.info_path) as info_file:
-        info = cPickle.load(info_file)
+        info = cPickle.load(info_file, 'rb')
 
     opts.update({'split': 'test'})
 
