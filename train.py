@@ -135,6 +135,11 @@ def train(opts, device):
         tmp = [torch.from_numpy(_).to(device=device) for _ in tmp]
         fc_feats, att_feats, labels, masks = tmp
 
+        logging.debug("FC Features shape: %s", fc_feats.shape.__str__())
+        logging.debug("ATT Features shape: %s", att_feats.shape.__str__())
+        logging.debug("Labels shape: %s", labels.shape.__str__())
+        logging.debug("Masks shape: %s", masks.shape.__str__())
+
         optimizer.zero_grad()
         # start from 1, 0 as START token
         loss = criterion(model(fc_feats, att_feats, labels), labels[:, 1:], masks[:, 1:])

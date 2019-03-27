@@ -40,8 +40,9 @@ class Att2inCore(nn.Module):
 
     def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
         # The p_att_feats here is already projected
+        # 取注意力的大小
         att_size = att_feats.numel() // att_feats.size(0) // self.att_feat_size
-        att = p_att_feats.view(-1, att_size, self.att_hid_size)
+        att = p_att_feats.view(-1, att_size, self.att_hid_size) # batch * att_size * att_hid_size
 
         att_h = self.h2att(state[0][-1])  # batch * att_hid_size
         att_h = att_h.unsqueeze(1).expand_as(att)  # batch * att_size * att_hid_size
@@ -115,7 +116,7 @@ class Att2inModel(CaptionModel):
 
         outputs = []
 
-        # Project the attention feats first to reduce memory and computation comsumptions.
+        # Project the attention feats first to reduce memory and computation consumptions.
         p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size))
         p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
 
@@ -161,7 +162,7 @@ class Att2inModel(CaptionModel):
         batch_size = fc_feats.size(0)
 
         # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size))
+        p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size)) # (batch * att * att) * 2048
         p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few ' \
