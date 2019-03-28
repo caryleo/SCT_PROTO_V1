@@ -29,7 +29,7 @@ class AttModel(CaptionModel):
         super(AttModel, self).__init__()
         self.vocab_size = opts.vocabulary_size
         self.input_encoding_size = opts.input_encoding_size
-        # self.rnn_type = opt.rnn_type
+        # self.rnn_type = opts.rnn_type
         self.rnn_size = opts.rnn_size
         self.num_layers = opts.num_layers
         self.drop_prob_lm = opts.dropout_prob
@@ -109,8 +109,8 @@ class AttModel(CaptionModel):
 
         return logprobs, state
 
-    def sample_beam(self, fc_feats, att_feats, opt={}):
-        beam_size = opt.get('beam_size', 10)
+    def sample_beam(self, fc_feats, att_feats, opts={}):
+        beam_size = opts.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
         # embed fc and att feats
@@ -143,18 +143,18 @@ class AttModel(CaptionModel):
                 logprobs = F.log_softmax(self.logit(output))
 
             self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats,
-                                                  opt=opt)
+                                                  opts=opts)
             seq[:, k] = self.done_beams[k][0]['seq']  # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def sample(self, fc_feats, att_feats, opt={}):
-        sample_max = opt.get('sample_max', 1)
-        beam_size = opt.get('beam_size', 1)
-        temperature = opt.get('temperature', 1.0)
+    def sample(self, fc_feats, att_feats, opts={}):
+        sample_max = opts.get('sample_max', 1)
+        beam_size = opts.get('beam_size', 1)
+        temperature = opts.get('temperature', 1.0)
         if beam_size > 1:
-            return self.sample_beam(fc_feats, att_feats, opt)
+            return self.sample_beam(fc_feats, att_feats, opts)
 
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
@@ -209,16 +209,16 @@ class AttModel(CaptionModel):
 
 
 class AdaAtt_lstm(nn.Module):
-    def __init__(self, opt, use_maxout=True):
+    def __init__(self, opts, use_maxout=True):
         super(AdaAtt_lstm, self).__init__()
-        self.input_encoding_size = opt.input_encoding_size
-        # self.rnn_type = opt.rnn_type
-        self.rnn_size = opt.rnn_size
-        self.num_layers = opt.num_layers
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.fc_feat_size = opt.fc_feat_size
-        self.att_feat_size = opt.att_feat_size
-        self.att_hid_size = opt.att_hid_size
+        self.input_encoding_size = opts.input_encoding_size
+        # self.rnn_type = opts.rnn_type
+        self.rnn_size = opts.rnn_size
+        self.num_layers = opts.num_layers
+        self.drop_prob_lm = opts.dropout_prob
+        self.fc_feat_size = opts.fc_feat_size
+        self.att_feat_size = opts.att_feat_size
+        self.att_hid_size = opts.att_hid_size
 
         self.use_maxout = use_maxout
 
@@ -299,13 +299,13 @@ class AdaAtt_lstm(nn.Module):
 
 
 class AdaAtt_attention(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opts):
         super(AdaAtt_attention, self).__init__()
-        self.input_encoding_size = opt.input_encoding_size
-        # self.rnn_type = opt.rnn_type
-        self.rnn_size = opt.rnn_size
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.att_hid_size = opt.att_hid_size
+        self.input_encoding_size = opts.input_encoding_size
+        # self.rnn_type = opts.rnn_type
+        self.rnn_size = opts.rnn_size
+        self.drop_prob_lm = opts.dropout_prob
+        self.att_hid_size = opts.att_hid_size
 
         # fake region embed
         self.fr_linear = nn.Sequential(
@@ -359,10 +359,10 @@ class AdaAtt_attention(nn.Module):
 
 
 class AdaAttCore(nn.Module):
-    def __init__(self, opt, use_maxout=False):
+    def __init__(self, opts, use_maxout=False):
         super(AdaAttCore, self).__init__()
-        self.lstm = AdaAtt_lstm(opt, use_maxout)
-        self.attention = AdaAtt_attention(opt)
+        self.lstm = AdaAtt_lstm(opts, use_maxout)
+        self.attention = AdaAtt_attention(opts)
 
     def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
         h_out, p_out, state = self.lstm(xt, fc_feats, state)
@@ -371,13 +371,13 @@ class AdaAttCore(nn.Module):
 
 
 class TopDownCore(nn.Module):
-    def __init__(self, opt, use_maxout=False):
+    def __init__(self, opts, use_maxout=False):
         super(TopDownCore, self).__init__()
-        self.drop_prob_lm = opt.drop_prob_lm
+        self.drop_prob_lm = opts.dropout_prob
 
-        self.att_lstm = nn.LSTMCell(opt.input_encoding_size + opt.rnn_size * 2, opt.rnn_size)  # we, fc, h^2_t-1
-        self.lang_lstm = nn.LSTMCell(opt.rnn_size * 2, opt.rnn_size)  # h^1_t, \hat v
-        self.attention = Attention(opt)
+        self.att_lstm = nn.LSTMCell(opts.input_encoding_size + opts.rnn_size * 2, opts.rnn_size)  # we, fc, h^2_t-1
+        self.lang_lstm = nn.LSTMCell(opts.rnn_size * 2, opts.rnn_size)  # h^1_t, \hat v
+        self.attention = Attention(opts)
 
     def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
         prev_h = state[0][-1]
@@ -399,10 +399,10 @@ class TopDownCore(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opts):
         super(Attention, self).__init__()
-        self.rnn_size = opt.rnn_size
-        self.att_hid_size = opt.att_hid_size
+        self.rnn_size = opts.rnn_size
+        self.att_hid_size = opts.att_hid_size
 
         self.h2att = nn.Linear(self.rnn_size, self.att_hid_size)
         self.alpha_net = nn.Linear(self.att_hid_size, 1)
@@ -428,16 +428,16 @@ class Attention(nn.Module):
 
 
 class Att2in2Core(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opts):
         super(Att2in2Core, self).__init__()
-        self.input_encoding_size = opt.input_encoding_size
-        # self.rnn_type = opt.rnn_type
-        self.rnn_size = opt.rnn_size
-        # self.num_layers = opt.num_layers
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.fc_feat_size = opt.fc_feat_size
-        self.att_feat_size = opt.att_feat_size
-        self.att_hid_size = opt.att_hid_size
+        self.input_encoding_size = opts.input_encoding_size
+        # self.rnn_type = opts.rnn_type
+        self.rnn_size = opts.rnn_size
+        self.num_layers = opts.num_layers
+        self.drop_prob_lm = opts.dropout_prob
+        self.fc_feat_size = opts.fc_feat_size
+        self.att_feat_size = opts.att_feat_size
+        self.att_hid_size = opts.att_hid_size
 
         # Build a LSTM
         self.a2c = nn.Linear(self.rnn_size, 2 * self.rnn_size)
@@ -445,7 +445,7 @@ class Att2in2Core(nn.Module):
         self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
         self.dropout = nn.Dropout(self.drop_prob_lm)
 
-        self.attention = Attention(opt)
+        self.attention = Attention(opts)
 
     def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
         att_res = self.attention(state[0][-1], att_feats, p_att_feats)
