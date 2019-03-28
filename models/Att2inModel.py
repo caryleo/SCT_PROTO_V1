@@ -41,10 +41,10 @@ class Att2inCore(nn.Module):
     def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
         # The p_att_feats here is already projected
         # 取注意力的大小
-        att_size = att_feats.numel() // att_feats.size(0) // self.att_feat_size
+        att_size = att_feats.numel() // att_feats.size(0) // self.att_feat_size # att * att
         att = p_att_feats.view(-1, att_size, self.att_hid_size) # batch * att_size * att_hid_size
 
-        att_h = self.h2att(state[0][-1])  # batch * att_hid_size
+        att_h = self.h2att(state[0][-1])  # batch * att_hid_size    h to w_zi
         att_h = att_h.unsqueeze(1).expand_as(att)  # batch * att_size * att_hid_size
         dot = att + att_h  # batch * att_size * att_hid_size
         dot = F.tanh(dot)  # batch * att_size * att_hid_size
@@ -63,9 +63,8 @@ class Att2inCore(nn.Module):
         forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
 
-        in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + \
-                       self.a2c(att_res)
-        in_transform = torch.max( \
+        in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + self.a2c(att_res)
+        in_transform = torch.max(
             in_transform.narrow(1, 0, self.rnn_size),
             in_transform.narrow(1, self.rnn_size, self.rnn_size))
         next_c = forget_gate * state[1][-1] + in_gate * in_transform

@@ -25,18 +25,18 @@ from .CaptionModel import CaptionModel
 
 
 class AttModel(CaptionModel):
-    def __init__(self, opt):
+    def __init__(self, opts):
         super(AttModel, self).__init__()
-        self.vocab_size = opt.vocab_size
-        self.input_encoding_size = opt.input_encoding_size
+        self.vocab_size = opts.vocabulary_size
+        self.input_encoding_size = opts.input_encoding_size
         # self.rnn_type = opt.rnn_type
-        self.rnn_size = opt.rnn_size
-        self.num_layers = opt.num_layers
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.seq_length = opt.seq_length
-        self.fc_feat_size = opt.fc_feat_size
-        self.att_feat_size = opt.att_feat_size
-        self.att_hid_size = opt.att_hid_size
+        self.rnn_size = opts.rnn_size
+        self.num_layers = opts.num_layers
+        self.drop_prob_lm = opts.dropout_prob
+        self.seq_length = opts.max_caption_length
+        self.fc_feat_size = opts.fc_feat_size
+        self.att_feat_size = opts.att_feat_size
+        self.att_hid_size = opts.att_hid_size
 
         self.ss_prob = 0.0  # Schedule sampling probability
 
@@ -68,12 +68,12 @@ class AttModel(CaptionModel):
         _att_feats = self.att_embed(att_feats.view(-1, self.att_feat_size))
         att_feats = _att_feats.view(*(att_feats.size()[:-1] + (self.rnn_size,)))
 
-        # Project the attention feats first to reduce memory and computation comsumptions.
+        # Project the attention feats first to reduce memory and computation consumptions. 进入
         p_att_feats = self.ctx2att(att_feats.view(-1, self.rnn_size))
         p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
 
         for i in range(seq.size(1) - 1):
-            if self.training and i >= 1 and self.ss_prob > 0.0:  # otherwiste no need to sample
+            if self.training and i >= 1 and self.ss_prob > 0.0:  # otherwise no need to sample
                 sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
                 sample_mask = sample_prob < self.ss_prob
                 if sample_mask.sum() == 0:
@@ -269,7 +269,7 @@ class AdaAtt_lstm(nn.Module):
                 in_transform = F.tanh(all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size))
             else:
                 in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size)
-                in_transform = torch.max( \
+                in_transform = torch.max(
                     in_transform.narrow(1, 0, self.rnn_size),
                     in_transform.narrow(1, self.rnn_size, self.rnn_size))
             # perform the LSTM update
@@ -459,7 +459,7 @@ class Att2in2Core(nn.Module):
 
         in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + \
                        self.a2c(att_res)
-        in_transform = torch.max( \
+        in_transform = torch.max(
             in_transform.narrow(1, 0, self.rnn_size),
             in_transform.narrow(1, self.rnn_size, self.rnn_size))
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
@@ -471,28 +471,28 @@ class Att2in2Core(nn.Module):
 
 
 class AdaAttModel(AttModel):
-    def __init__(self, opt):
-        super(AdaAttModel, self).__init__(opt)
-        self.core = AdaAttCore(opt)
+    def __init__(self, opts):
+        super(AdaAttModel, self).__init__(opts)
+        self.core = AdaAttCore(opts)
 
 
 # AdaAtt with maxout lstm
 class AdaAttMOModel(AttModel):
-    def __init__(self, opt):
-        super(AdaAttMOModel, self).__init__(opt)
-        self.core = AdaAttCore(opt, True)
+    def __init__(self, opts):
+        super(AdaAttMOModel, self).__init__(opts)
+        self.core = AdaAttCore(opts, True)
 
 
 class Att2in2Model(AttModel):
-    def __init__(self, opt):
-        super(Att2in2Model, self).__init__(opt)
-        self.core = Att2in2Core(opt)
+    def __init__(self, opts):
+        super(Att2in2Model, self).__init__(opts)
+        self.core = Att2in2Core(opts)
         delattr(self, 'fc_embed')
         self.fc_embed = lambda x: x
 
 
 class TopDownModel(AttModel):
-    def __init__(self, opt):
-        super(TopDownModel, self).__init__(opt)
+    def __init__(self, opts):
+        super(TopDownModel, self).__init__(opts)
         self.num_layers = 2
-        self.core = TopDownCore(opt)
+        self.core = TopDownCore(opts)
