@@ -42,7 +42,7 @@ class AttModel(nn.Module):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
-        outputs = []
+        outputs = list()
 
         # embed fc and att feats
         fc_feats = self.fc_embed(fc_feats)
@@ -419,23 +419,27 @@ class ELKAAttention(nn.Module):
             nn.Linear(self.rnn_size, self.input_encoding_size),
             nn.ReLU(),
             nn.Dropout(self.drop_prob_lm))
+
         self.fr_embed = nn.Linear(self.input_encoding_size, self.att_hid_size)
 
-        # h out embed
+        # h out embed h_t的嵌入，同样的操作
         self.ho_linear = nn.Sequential(
             nn.Linear(self.rnn_size, self.input_encoding_size),
             nn.Tanh(),
             nn.Dropout(self.drop_prob_lm))
+
         self.ho_embed = nn.Linear(self.input_encoding_size, self.att_hid_size)
 
         self.alpha_net = nn.Linear(self.att_hid_size, 1)
-        self.att2h = nn.Linear(self.rnn_size, self.rnn_size)
+
+        self.att2h = nn.Linear(self.input_encoding_size, self.rnn_size)
 
     def forward(self, h_out, fake_region, conv_feat, conv_feat_embed):
         # View into three dimensions
+        # 计算空间区域个数，也就是att * att
         att_size = conv_feat.numel() // conv_feat.size(0) // self.rnn_size
-        conv_feat = conv_feat.view(-1, att_size, self.rnn_size)
-        conv_feat_embed = conv_feat_embed.view(-1, att_size, self.att_hid_size)
+        conv_feat = conv_feat.view(-1, att_size, self.rnn_size) # 处理前的视觉特征 batch * attsize * rnnsize
+        conv_feat_embed = conv_feat_embed.view(-1, att_size, self.att_hid_size) # 处理好的视觉特征 batch * attsize * atthid
 
         # view neighbor from bach_size * neighbor_num x rnn_size to bach_size x rnn_size * neighbor_num
         fake_region = self.fr_linear(fake_region)
@@ -444,22 +448,31 @@ class ELKAAttention(nn.Module):
         h_out_linear = self.ho_linear(h_out)
         h_out_embed = self.ho_embed(h_out_linear)
 
+        # 扩展第二维
         txt_replicate = h_out_embed.unsqueeze(1).expand(h_out_embed.size(0), att_size + 1, h_out_embed.size(1))
 
+        # 拼在一起
         img_all = torch.cat((fake_region.view(-1, 1, self.input_encoding_size), conv_feat), 1)
         img_all_embed = torch.cat((fake_region_embed.view(-1, 1, self.input_encoding_size), conv_feat_embed), 1)
 
+        # z_t
         hA = F.tanh(img_all_embed + txt_replicate)
         hA = F.dropout(hA, self.drop_prob_lm, self.training)
 
+        # 转换维度，最后一维变成1
         hAflat = self.alpha_net(hA.view(-1, self.att_hid_size))
-        PI = F.softmax(hAflat.view(-1, att_size + 1))
 
-        visAtt = torch.bmm(PI.unsqueeze(1), img_all)
-        visAttdim = visAtt.squeeze(1)
+        # 算注意力
+        PI = F.softmax(hAflat.view(-1, att_size + 1)) # 原来是 batch * (attsize + 1) * 1 去掉最后一维算softmax
 
-        atten_out = visAttdim + h_out_linear
+        # 最终注意力结果
+        visAtt = torch.bmm(PI.unsqueeze(1), img_all) # batch * 1 * （attsize + 1） **** batch * (attsize + 1) * incodingsize
+        visAttdim = visAtt.squeeze(1) # batch * incodingsize 注意力结果
 
+        # 传到MLP的内容
+        atten_out = visAttdim + h_out_linear # batch * incodingsize
+
+        # MLP
         h = F.tanh(self.att2h(atten_out))
         h = F.dropout(h, self.drop_prob_lm, self.training)
         return h
