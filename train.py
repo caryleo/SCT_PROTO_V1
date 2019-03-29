@@ -52,7 +52,7 @@ def train(opts, device):
         logging.info("Starting from checkpoint")
 
         # open old info and check if models are compatible
-        with open(os.path.join(opts.start_from, 'info_' + opts.train_id + '.pkl')) as info_file:
+        with open(os.path.join(opts.start_from, 'info_' + opts.train_id + '.pkl'), 'rb') as info_file:
             info = cPickle.load(info_file)
             saved_model_opts = info['opts']
             entries = ["caption_model", "rnn_type", "rnn_size", "num_layers"]
@@ -61,7 +61,7 @@ def train(opts, device):
                     entry], "Command line argument and saved model disagree on '%s' " % entry
 
         if os.path.isfile(os.path.join(opts.start_from, 'history_' + opts.train_id + '.pkl')):
-            with open(os.path.join(opts.start_from, 'history_' + opts.train_id + '.pkl')) as history_file:
+            with open(os.path.join(opts.start_from, 'history_' + opts.train_id + '.pkl'), 'rb') as history_file:
                 history = cPickle.load(history_file)
 
         logging.info("Load checkpoint complete")
